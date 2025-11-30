@@ -8,14 +8,16 @@ import { TDocumentDefinitions } from 'pdfmake/interfaces';
 import { DailyReport, Site } from '../types';
 import { CalculationService } from './CalculationService';
 import { getSiteById } from '../db';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export class PDFService {
   // Кэш для шрифтов
   private static fontCache: any = null;
 
   /**
-   * Загружает шрифты Arial с поддержкой кириллицы
-   * Использует Buffer напрямую для совместимости с serverless окружением
+   * Загружает шрифты DejaVu Sans с поддержкой кириллицы
+   * Сначала пытается загрузить из локальных файлов, затем из CDN
    */
   private static async loadFonts(): Promise<any> {
     if (this.fontCache) {
@@ -23,6 +25,37 @@ export class PDFService {
     }
 
     try {
+      // Пытаемся загрузить из локальных файлов
+      const fontsPath = path.join(process.cwd(), 'fonts');
+      const localFonts = {
+        normal: path.join(fontsPath, 'DejaVuSans.ttf'),
+        bold: path.join(fontsPath, 'DejaVuSans-Bold.ttf'),
+        italics: path.join(fontsPath, 'DejaVuSans-Oblique.ttf'),
+        bolditalics: path.join(fontsPath, 'DejaVuSans-BoldOblique.ttf'),
+      };
+
+      // Проверяем, есть ли локальные шрифты
+      if (
+        fs.existsSync(localFonts.normal) &&
+        fs.existsSync(localFonts.bold) &&
+        fs.existsSync(localFonts.italics) &&
+        fs.existsSync(localFonts.bolditalics)
+      ) {
+        console.log('Loading fonts from local files...');
+        this.fontCache = {
+          DejaVuSans: {
+            normal: fs.readFileSync(localFonts.normal),
+            bold: fs.readFileSync(localFonts.bold),
+            italics: fs.readFileSync(localFonts.italics),
+            bolditalics: fs.readFileSync(localFonts.bolditalics),
+          },
+        };
+        console.log('DejaVu Sans fonts loaded successfully from local files');
+        return this.fontCache;
+      } else {
+        console.log('Local fonts not found, trying to load from CDN...');
+      }
+
       // Загружаем шрифты DejaVu Sans с поддержкой кириллицы
       // Пробуем разные CDN источники
       const fontUrls = [

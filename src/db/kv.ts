@@ -3,7 +3,7 @@
  */
 
 import { kv } from '@vercel/kv';
-import { config } from '../config';
+import { isSuperadmin } from '../config';
 import { User, Session, Site, DailyReport, Log } from '../types';
 
 // Инициализация KV клиента
@@ -59,7 +59,7 @@ export async function createUser(telegramId: number, username?: string, phone?: 
     telegram_id: telegramId,
     username,
     phone,
-    role: config.isSuperadmin(telegramId) ? 'superadmin' : 'user',
+    role: isSuperadmin(telegramId) ? 'superadmin' : 'user',
     created_at: new Date().toISOString(),
   };
   

@@ -280,7 +280,7 @@ export class EveningReportFlow {
       const prevState = stateOrder[currentIndex - 1];
       await createOrUpdateSession(userId, prevState, session.context);
       
-      const messages: Record<DialogState, string> = {
+      const messages: Partial<Record<DialogState, string>> = {
         evening_fill_lastname: 'Введите фамилию сотрудника:',
         evening_fill_firstname: 'Введите имя сотрудника:',
         evening_fill_qr_number: 'Введите № QR:',

@@ -12,11 +12,7 @@ initKV();
 
 // Запуск бота в режиме polling (для локальной разработки)
 if (require.main === module) {
-  bot.launch({
-    webhook: {
-      domain: undefined, // для локальной разработки не используем webhook
-    },
-  });
+  bot.launch();
   
   console.log('Bot is running in polling mode...');
   

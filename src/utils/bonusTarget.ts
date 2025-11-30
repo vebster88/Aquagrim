@@ -3,9 +3,9 @@
  */
 
 /**
- * Парсит строку с бонусными планками (через запятую) в массив чисел (в копейках)
+ * Парсит строку с бонусными планками (через запятую) в массив чисел (в рублях)
  * @param input - строка вида "1000, 2000, 3000" или "1000,2000,3000"
- * @returns массив чисел в копейках или null, если парсинг не удался
+ * @returns массив чисел в рублях или null, если парсинг не удался
  */
 export function parseBonusTargets(input: string): number[] | null {
   if (!input || !input.trim()) {
@@ -30,15 +30,16 @@ export function parseBonusTargets(input: string): number[] | null {
       return null; // Если хотя бы одно значение некорректно, возвращаем null
     }
     
-    targets.push(Math.round(num * 100)); // Конвертируем в копейки
+    // Округляем до 2 знаков после запятой
+    targets.push(Math.round(num * 100) / 100);
   }
   
   return targets;
 }
 
 /**
- * Форматирует массив бонусных планок (в копейках) в строку для отображения
- * @param targets - массив чисел в копейках или строка с запятыми
+ * Форматирует массив бонусных планок (в рублях) в строку для отображения
+ * @param targets - массив чисел в рублях или строка с запятыми
  * @returns отформатированная строка вида "1 000.00 ₽, 2 000.00 ₽"
  */
 export function formatBonusTargets(targets: number[] | string): string {
@@ -56,16 +57,16 @@ export function formatBonusTargets(targets: number[] | string): string {
   }
   
   return targets
-    .map(target => (target / 100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₽')
+    .map(target => target.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₽')
     .join(', ');
 }
 
 /**
- * Конвертирует массив бонусных планок (в копейках) в строку для хранения
- * @param targets - массив чисел в копейках
- * @returns строка с запятыми (в копейках)
+ * Конвертирует массив бонусных планок (в рублях) в строку для хранения
+ * @param targets - массив чисел в рублях
+ * @returns строка с запятыми (в рублях)
  */
 export function bonusTargetsToString(targets: number[]): string {
-  return targets.join(',');
+  return targets.map(t => t.toString()).join(',');
 }
 

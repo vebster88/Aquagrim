@@ -79,7 +79,7 @@ export class MorningFillFlow {
     await createOrUpdateSession(userId, 'morning_fill_phone', context);
     
     // Показываем подтверждение введенных значений
-    const formatted = targets.map(t => (t / 100).toFixed(2)).join(', ');
+    const formatted = targets.map(t => t.toFixed(2)).join(', ');
     await ctx.reply(
       `✅ Бонусные планки сохранены: ${formatted} ₽\n\n` +
       `Введите номер телефона ответственной:`,

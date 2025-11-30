@@ -51,7 +51,7 @@ export interface Site {
   id: string;
   name: string;
   responsible_user_id: string;
-  bonus_target: string; // строка с бонусными планками через запятую (в копейках, например: "100000,200000,300000")
+  bonus_target: string; // строка с бонусными планками через запятую (в рублях, например: "1000,2000,3000")
   phone: string;
   date: string; // YYYY-MM-DD
   status: 'morning_filled' | 'evening_filled' | 'completed';
@@ -66,21 +66,21 @@ export interface DailyReport {
   lastname: string;
   firstname: string;
   qr_number: string;
-  qr_amount: number; // в копейках
-  cash_amount: number; // в копейках
-  terminal_amount?: number; // в копейках, необязательно
+  qr_amount: number; // в рублях
+  cash_amount: number; // в рублях
+  terminal_amount?: number; // в рублях, необязательно
   comment?: string;
   signature?: string;
   responsible_signature?: string;
   // Рассчитанные поля
-  total_revenue: number; // в копейках
-  salary: number; // в копейках (20% от выручки)
-  bonus_penalty?: number; // в копейках, ручное поле
-  responsible_salary: number; // в копейках
-  total_daily: number; // в копейках (оборот)
-  total_cash: number; // в копейках
-  total_qr: number; // в копейках
-  cash_in_envelope: number; // в копейках (нал в конверте с вычетом бонусов)
+  total_revenue: number; // в рублях
+  salary: number; // в рублях (20% от выручки)
+  bonus_penalty?: number; // в рублях, ручное поле
+  responsible_salary: number; // в рублях
+  total_daily: number; // в рублях (оборот)
+  total_cash: number; // в рублях
+  total_qr: number; // в рублях
+  cash_in_envelope: number; // в рублях (нал в конверте с вычетом бонусов)
   pdf_url?: string;
   created_at: string;
   updated_at: string;

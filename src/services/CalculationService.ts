@@ -6,11 +6,11 @@ import { CalculationResult } from '../types';
 import { config } from '../config';
 
 export interface CalculationInput {
-  qr_amount: number; // в копейках
-  cash_amount: number; // в копейках
-  terminal_amount?: number; // в копейках
-  bonus_penalty?: number; // в копейках
-  bonus_target?: string | number; // строка с бонусными планками через запятую (в копейках) или число для обратной совместимости
+  qr_amount: number; // в рублях
+  cash_amount: number; // в рублях
+  terminal_amount?: number; // в рублях
+  bonus_penalty?: number; // в рублях
+  bonus_target?: string | number; // строка с бонусными планками через запятую (в рублях) или число для обратной совместимости
 }
 
 export class CalculationService {
@@ -25,7 +25,7 @@ export class CalculationService {
     const total_revenue = qr_amount + cash_amount + terminal_amount;
     
     // Зарплата (20% от выручки)
-    const salary = Math.round(total_revenue * config.salaryPercent);
+    const salary = Math.round((total_revenue * config.salaryPercent) * 100) / 100;
     
     // Зарплата ответственного (можно расширить логику)
     const responsible_salary = salary;
@@ -56,15 +56,14 @@ export class CalculationService {
   }
   
   /**
-   * Форматирует сумму в копейках в читаемый формат
+   * Форматирует сумму в рублях в читаемый формат
    */
-  static formatAmount(kopecks: number): string {
-    const rubles = kopecks / 100;
+  static formatAmount(rubles: number): string {
     return `${rubles.toFixed(2)} ₽`;
   }
   
   /**
-   * Парсит введенную сумму в копейки
+   * Парсит введенную сумму в рубли
    * Принимает строку вида "1000.50" или "1000,50" или "1000"
    */
   static parseAmount(input: string): number | null {
@@ -77,8 +76,8 @@ export class CalculationService {
       return null;
     }
     
-    // Конвертируем в копейки
-    return Math.round(num * 100);
+    // Возвращаем рубли (округление до 2 знаков после запятой)
+    return Math.round(num * 100) / 100;
   }
   
   /**

@@ -102,8 +102,8 @@ export class PDFService {
 
       if (!fontsLoaded) {
         console.warn('Could not load DejaVu Sans fonts, PDF will be generated without bold styles (may not support Cyrillic)');
-        // Не устанавливаем fontCache, чтобы избежать ошибок с неопределенными шрифтами
-        this.fontCache = null;
+        // Используем пустой объект вместо null, чтобы избежать ошибок
+        this.fontCache = {};
       }
 
       return this.fontCache;

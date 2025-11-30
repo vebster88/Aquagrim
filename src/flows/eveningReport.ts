@@ -17,6 +17,7 @@ import {
 } from '../db';
 import { DialogState } from '../types';
 import { CalculationService } from '../services/CalculationService';
+import { getFlowKeyboard } from '../utils/keyboards';
 
 export class EveningReportFlow {
   /**
@@ -38,7 +39,7 @@ export class EveningReportFlow {
         site_id: sites[0].id,
         report: {},
       });
-      await ctx.reply('Введите фамилию сотрудника:');
+      await ctx.reply('Введите фамилию сотрудника:', getFlowKeyboard());
       return;
     }
     
@@ -64,6 +65,7 @@ export class EveningReportFlow {
     await createLog(userId, 'evening_fill_started', null, { site_id: siteId });
     
     await ctx.editMessageText('Введите фамилию сотрудника:');
+    await ctx.reply('Введите фамилию сотрудника:', getFlowKeyboard());
   }
   
   /**
@@ -76,7 +78,7 @@ export class EveningReportFlow {
     const context = { ...session.context, report: { ...session.context.report, lastname: lastname.trim() } };
     await createOrUpdateSession(userId, 'evening_fill_firstname', context);
     
-    await ctx.reply('Введите имя сотрудника:');
+    await ctx.reply('Введите имя сотрудника:', getFlowKeyboard());
   }
   
   /**
@@ -89,7 +91,7 @@ export class EveningReportFlow {
     const context = { ...session.context, report: { ...session.context.report, firstname: firstname.trim() } };
     await createOrUpdateSession(userId, 'evening_fill_qr_number', context);
     
-    await ctx.reply('Введите № QR:');
+    await ctx.reply('Введите № QR:', getFlowKeyboard());
   }
   
   /**
@@ -102,7 +104,7 @@ export class EveningReportFlow {
     const context = { ...session.context, report: { ...session.context.report, qr_number: qrNumber.trim() } };
     await createOrUpdateSession(userId, 'evening_fill_qr_amount', context);
     
-    await ctx.reply('Введите сумму по QR (в рублях, например: 1000 или 1000.50):');
+    await ctx.reply('Введите сумму по QR (в рублях, например: 1000 или 1000.50):', getFlowKeyboard());
   }
   
   /**
@@ -112,7 +114,7 @@ export class EveningReportFlow {
     const amount = CalculationService.parseAmount(input);
     
     if (amount === null) {
-      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 1000 или 1000.50)');
+      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 1000 или 1000.50)', getFlowKeyboard());
       return;
     }
     
@@ -122,7 +124,7 @@ export class EveningReportFlow {
     const context = { ...session.context, report: { ...session.context.report, qr_amount: amount } };
     await createOrUpdateSession(userId, 'evening_fill_cash_amount', context);
     
-    await ctx.reply('Введите сумму наличных (в рублях):');
+    await ctx.reply('Введите сумму наличных (в рублях):', getFlowKeyboard());
   }
   
   /**
@@ -132,7 +134,7 @@ export class EveningReportFlow {
     const amount = CalculationService.parseAmount(input);
     
     if (amount === null) {
-      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 1000 или 1000.50)');
+      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 1000 или 1000.50)', getFlowKeyboard());
       return;
     }
     
@@ -142,7 +144,7 @@ export class EveningReportFlow {
     const context = { ...session.context, report: { ...session.context.report, cash_amount: amount } };
     await createOrUpdateSession(userId, 'evening_fill_terminal_amount', context);
     
-    await ctx.reply('Введите сумму по терминалу (в рублях, или нажмите "Далее" чтобы пропустить):');
+    await ctx.reply('Введите сумму по терминалу (в рублях, или нажмите "Далее" чтобы пропустить):', getFlowKeyboard());
   }
   
   /**
@@ -157,7 +159,7 @@ export class EveningReportFlow {
     if (input) {
       const amount = CalculationService.parseAmount(input);
       if (amount === null) {
-        await ctx.reply('❌ Пожалуйста, введите корректное число или нажмите "Далее"');
+        await ctx.reply('❌ Пожалуйста, введите корректное число или нажмите "Далее"', getFlowKeyboard());
         return;
       }
       terminalAmount = amount;
@@ -166,7 +168,7 @@ export class EveningReportFlow {
     const context = { ...session.context, report: { ...session.context.report, terminal_amount: terminalAmount } };
     await createOrUpdateSession(userId, 'evening_fill_comment', context);
     
-    await ctx.reply('Введите комментарий по итогам дня (или нажмите "Далее" чтобы пропустить):');
+    await ctx.reply('Введите комментарий по итогам дня (или нажмите "Далее" чтобы пропустить):', getFlowKeyboard());
   }
   
   /**
@@ -179,7 +181,7 @@ export class EveningReportFlow {
     const context = { ...session.context, report: { ...session.context.report, comment: comment?.trim() || undefined } };
     await createOrUpdateSession(userId, 'evening_fill_signature', context);
     
-    await ctx.reply('Введите подпись:');
+    await ctx.reply('Введите подпись:', getFlowKeyboard());
   }
   
   /**
@@ -192,7 +194,7 @@ export class EveningReportFlow {
     const context = { ...session.context, report: { ...session.context.report, signature: signature.trim() } };
     await createOrUpdateSession(userId, 'evening_fill_responsible_signature', context);
     
-    await ctx.reply('Введите подпись ответственного:');
+    await ctx.reply('Введите подпись ответственного:', getFlowKeyboard());
   }
   
   /**
@@ -292,7 +294,7 @@ export class EveningReportFlow {
         evening_fill_responsible_signature: 'Введите подпись ответственного:',
       };
       
-      await ctx.reply(messages[prevState] || 'Вернулись на предыдущий шаг');
+      await ctx.reply(messages[prevState] || 'Вернулись на предыдущий шаг', getFlowKeyboard());
     } else {
       await ctx.reply('Вы на первом шаге');
     }

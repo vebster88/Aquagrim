@@ -16,6 +16,7 @@ import {
 } from '../db';
 import { EditContext, DialogState } from '../types';
 import { CalculationService } from '../services/CalculationService';
+import { getFlowKeyboard } from '../utils/keyboards';
 
 export class EditFlow {
   /**
@@ -42,6 +43,7 @@ export class EditFlow {
     });
     
     await ctx.editMessageText('Введите фамилию для поиска:');
+    await ctx.reply('Введите фамилию для поиска:', getFlowKeyboard());
   }
   
   /**
@@ -159,7 +161,7 @@ export class EditFlow {
       originalReport: report,
     });
     
-    await ctx.reply(`Текущее значение: ${report.lastname}\nВведите новое значение или нажмите "Далее":`);
+    await ctx.reply(`Текущее значение: ${report.lastname}\nВведите новое значение или нажмите "Далее":`, getFlowKeyboard());
   }
   
   /**
@@ -199,7 +201,7 @@ export class EditFlow {
       if (currentField.isAmount) {
         const amount = CalculationService.parseAmount(newValue);
         if (amount === null) {
-          await ctx.reply('❌ Пожалуйста, введите корректное число');
+          await ctx.reply('❌ Пожалуйста, введите корректное число', getFlowKeyboard());
           return;
         }
         updatedValue = amount;
@@ -237,7 +239,8 @@ export class EditFlow {
       const nextField = fields[nextIndex];
       await ctx.reply(
         `Текущее значение: ${nextField.isAmount ? CalculationService.formatAmount(nextField.value as number) : nextField.value}\n` +
-        `Введите новое значение или нажмите "Далее":`
+        `Введите новое значение или нажмите "Далее":`,
+        getFlowKeyboard()
       );
     } else {
       await ctx.reply('Все поля обработаны. Сохраняю изменения...');

@@ -12,6 +12,7 @@ import {
   clearSession,
 } from '../db';
 import { DialogState } from '../types';
+import { getFlowKeyboard } from '../utils/keyboards';
 
 export class MorningFillFlow {
   /**
@@ -25,7 +26,7 @@ export class MorningFillFlow {
     
     await createLog(userId, 'morning_fill_started');
     
-    await ctx.reply('Введите название площадки:');
+    await ctx.reply('Введите название площадки:', getFlowKeyboard());
   }
   
   /**
@@ -38,7 +39,7 @@ export class MorningFillFlow {
     const context = { ...session.context, site: { ...session.context.site, name: siteName } };
     await createOrUpdateSession(userId, 'morning_fill_bonus_target', context);
     
-    await ctx.reply('Введите бонусную планку (в рублях, например: 1000 или 1000.50):');
+    await ctx.reply('Введите бонусную планку (в рублях, например: 1000 или 1000.50):', getFlowKeyboard());
   }
   
   /**
@@ -50,7 +51,7 @@ export class MorningFillFlow {
     const num = parseFloat(cleaned);
     
     if (isNaN(num) || num < 0) {
-      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 1000 или 1000.50)');
+      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 1000 или 1000.50)', getFlowKeyboard());
       return;
     }
     
@@ -62,7 +63,7 @@ export class MorningFillFlow {
     const context = { ...session.context, site: { ...session.context.site, bonus_target: bonusTarget } };
     await createOrUpdateSession(userId, 'morning_fill_phone', context);
     
-    await ctx.reply('Введите номер телефона ответственной:');
+    await ctx.reply('Введите номер телефона ответственной:', getFlowKeyboard());
   }
   
   /**

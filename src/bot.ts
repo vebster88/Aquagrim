@@ -10,6 +10,7 @@ import { MorningFillFlow } from './flows/morningFill';
 import { EveningReportFlow } from './flows/eveningReport';
 import { EditFlow } from './flows/editFlow';
 import { AdminPanel } from './admin/adminPanel';
+import { getMainKeyboard } from './utils/keyboards';
 
 // Инициализация бота
 const bot = new Telegraf(config.botToken);
@@ -17,21 +18,7 @@ const bot = new Telegraf(config.botToken);
 // Инициализация KV
 initKV();
 
-// Клавиатура для основных действий
-function getMainKeyboard() {
-  return Markup.keyboard([
-    ['🌅 Заполнить площадку (утро)', '🌆 Заполнить площадку (вечер)'],
-    ['✏️ Редактировать данные', 'ℹ️ Помощь'],
-  ]).resize();
-}
-
-// Клавиатура для навигации в процессе заполнения
-function getFlowKeyboard() {
-  return Markup.keyboard([
-    ['⏭️ Далее', '⬅️ Назад'],
-    ['❌ Отмена'],
-  ]).resize();
-}
+// Клавиатура для навигации в процессе заполнения (экспортирована в utils/keyboards.ts)
 
 // Middleware для получения/создания пользователя
 bot.use(async (ctx, next) => {

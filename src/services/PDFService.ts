@@ -8,6 +8,40 @@ import { CalculationService } from './CalculationService';
 import { getSiteById } from '../db';
 
 export class PDFService {
+  // URL шрифта DejaVu Sans с поддержкой кириллицы (публичный CDN)
+  private static readonly CYRILLIC_FONT_URL = 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf';
+  
+  // Кэш для шрифта (чтобы не загружать каждый раз)
+  private static fontBuffer: Buffer | null = null;
+  
+  /**
+   * Загружает шрифт с поддержкой кириллицы
+   */
+  private static async loadCyrillicFont(): Promise<Buffer> {
+    if (this.fontBuffer) {
+      return this.fontBuffer;
+    }
+    
+    try {
+      // Используем встроенный fetch (доступен в Node.js 18+ и Vercel)
+      // Vercel Functions поддерживают встроенный fetch
+      const response = await fetch(this.CYRILLIC_FONT_URL);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load font: ${response.statusText}`);
+      }
+      
+      // Получаем данные как ArrayBuffer и конвертируем в Buffer
+      const arrayBuffer = await response.arrayBuffer();
+      this.fontBuffer = Buffer.from(arrayBuffer);
+      return this.fontBuffer;
+    } catch (error) {
+      console.error('Error loading Cyrillic font:', error);
+      // Если не удалось загрузить, выбрасываем ошибку
+      throw error;
+    }
+  }
+  
   /**
    * Генерирует PDF отчет по площадке и дню
    */
@@ -21,21 +55,22 @@ export class PDFService {
     const buffers: Buffer[] = [];
     doc.on('data', buffers.push.bind(buffers));
     
-    // Вспомогательная функция для безопасного вывода текста с кириллицей
-    // PDFKit поддерживает Unicode, но стандартные шрифты не содержат кириллицу
-    // Используем правильную кодировку UTF-8
+    // Загружаем и регистрируем шрифт с поддержкой кириллицы
+    try {
+      const fontBuffer = await this.loadCyrillicFont();
+      doc.registerFont('CyrillicFont', fontBuffer);
+      doc.font('CyrillicFont');
+    } catch (error) {
+      console.warn('Could not load Cyrillic font, using default font:', error);
+      // Используем стандартный шрифт, если не удалось загрузить
+      // В этом случае кириллица может отображаться неправильно
+    }
+    
+    // Вспомогательная функция для безопасного вывода текста
     const safeText = (text: string | undefined | null): string => {
       if (!text) return '';
       return String(text);
     };
-    
-    // Для поддержки кириллицы в PDFKit нужно использовать правильный подход
-    // Стандартные шрифты (Helvetica, Times-Roman, Courier) не содержат кириллические символы
-    // Решение: используем встроенную поддержку Unicode через правильную обработку текста
-    // В PDFKit 0.14+ есть улучшенная поддержка Unicode, но стандартные шрифты все равно не поддерживают кириллицу
-    
-    // Используем стандартный шрифт и надеемся на правильную обработку Unicode
-    // Если это не работает, нужно будет добавить внешний шрифт с поддержкой кириллицы
     
     // Заголовок
     doc.fontSize(20);

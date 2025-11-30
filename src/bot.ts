@@ -273,10 +273,6 @@ bot.on('text', async (ctx) => {
     await EveningReportFlow.handleTerminalAmount(ctx, user.id, text);
   } else if (session.state === 'evening_fill_comment') {
     await EveningReportFlow.handleComment(ctx, user.id, text);
-  } else if (session.state === 'evening_fill_signature') {
-    await EveningReportFlow.handleSignature(ctx, user.id, text);
-  } else if (session.state === 'evening_fill_responsible_signature') {
-    await EveningReportFlow.handleResponsibleSignature(ctx, user.id, text);
   }
   // Обработка редактирования
   else if (session.state === 'edit_by_lastname_input') {

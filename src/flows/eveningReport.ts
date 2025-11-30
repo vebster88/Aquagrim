@@ -172,40 +172,16 @@ export class EveningReportFlow {
   }
   
   /**
-   * Обрабатывает ввод комментария или пропуск
+   * Обрабатывает ввод комментария или пропуск и завершает заполнение
    */
   static async handleComment(ctx: Context, userId: string, comment?: string) {
     const session = await getSession(userId);
     if (!session) return;
     
     const context = { ...session.context, report: { ...session.context.report, comment: comment?.trim() || undefined } };
-    await createOrUpdateSession(userId, 'evening_fill_signature', context);
-    
-    await ctx.reply('Введите подпись:', getFlowKeyboard());
-  }
-  
-  /**
-   * Обрабатывает ввод подписи
-   */
-  static async handleSignature(ctx: Context, userId: string, signature: string) {
-    const session = await getSession(userId);
-    if (!session) return;
-    
-    const context = { ...session.context, report: { ...session.context.report, signature: signature.trim() } };
-    await createOrUpdateSession(userId, 'evening_fill_responsible_signature', context);
-    
-    await ctx.reply('Введите подпись ответственного:', getFlowKeyboard());
-  }
-  
-  /**
-   * Завершает заполнение и создает отчет
-   */
-  static async handleResponsibleSignature(ctx: Context, userId: string, signature: string) {
-    const session = await getSession(userId);
-    if (!session) return;
     
     const siteId = session.context.site_id;
-    const reportData = session.context.report;
+    const reportData = context.report;
     const site = await getSiteById(siteId);
     
     if (!site) {
@@ -224,7 +200,7 @@ export class EveningReportFlow {
       bonus_target: site.bonus_target,
     });
     
-    // Создаем отчет
+    // Создаем отчет (подписи не заполняются, остаются null)
     const report = await createReport({
       site_id: siteId,
       date: today,
@@ -235,8 +211,8 @@ export class EveningReportFlow {
       cash_amount: reportData.cash_amount,
       terminal_amount: reportData.terminal_amount,
       comment: reportData.comment,
-      signature: reportData.signature,
-      responsible_signature: signature.trim(),
+      signature: undefined, // Не заполняется
+      responsible_signature: undefined, // Не заполняется
       ...calculations,
     });
     
@@ -273,8 +249,6 @@ export class EveningReportFlow {
       'evening_fill_cash_amount',
       'evening_fill_terminal_amount',
       'evening_fill_comment',
-      'evening_fill_signature',
-      'evening_fill_responsible_signature',
     ];
     
     const currentIndex = stateOrder.indexOf(session.state);
@@ -290,8 +264,6 @@ export class EveningReportFlow {
         evening_fill_cash_amount: 'Введите сумму наличных:',
         evening_fill_terminal_amount: 'Введите сумму по терминалу:',
         evening_fill_comment: 'Введите комментарий:',
-        evening_fill_signature: 'Введите подпись:',
-        evening_fill_responsible_signature: 'Введите подпись ответственного:',
       };
       
       await ctx.reply(messages[prevState] || 'Вернулись на предыдущий шаг', getFlowKeyboard());

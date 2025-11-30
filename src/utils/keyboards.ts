@@ -15,6 +15,16 @@ export function getFlowKeyboard() {
 }
 
 /**
+ * Клавиатура для подтверждения данных
+ */
+export function getConfirmKeyboard() {
+  return Markup.keyboard([
+    ['✅ Ок', '⬅️ Назад'],
+    ['❌ Отмена'],
+  ]).resize();
+}
+
+/**
  * Клавиатура для основных действий
  */
 export function getMainKeyboard() {

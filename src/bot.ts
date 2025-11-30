@@ -10,7 +10,7 @@ import { MorningFillFlow } from './flows/morningFill';
 import { EveningReportFlow } from './flows/eveningReport';
 import { EditFlow } from './flows/editFlow';
 import { AdminPanel } from './admin/adminPanel';
-import { getMainKeyboard } from './utils/keyboards';
+import { getMainKeyboard, getFlowKeyboard, getConfirmKeyboard } from './utils/keyboards';
 
 // Инициализация бота
 const bot = new Telegraf(config.botToken);
@@ -110,7 +110,7 @@ bot.hears('⏭️ Далее', async (ctx) => {
   const session = await getSession(user.id);
   
   if (!session) {
-    await ctx.reply('Нет активного процесса заполнения');
+    await ctx.reply('Нет активного процесса заполнения', getMainKeyboard());
     return;
   }
   
@@ -128,7 +128,23 @@ bot.hears('⏭️ Далее', async (ctx) => {
       await EditFlow.handleFieldEdit(ctx, user.id);
       break;
     default:
-      await ctx.reply('Это поле обязательно для заполнения');
+      await ctx.reply('Это поле обязательно для заполнения', getFlowKeyboard());
+  }
+});
+
+bot.hears('✅ Ок', async (ctx) => {
+  const user = (ctx as any).user;
+  const session = await getSession(user.id);
+  
+  if (!session) {
+    await ctx.reply('Нет активного процесса заполнения', getMainKeyboard());
+    return;
+  }
+  
+  if (session.state === 'evening_fill_confirm') {
+    await EveningReportFlow.handleConfirm(ctx, user.id);
+  } else {
+    await ctx.reply('Подтверждение недоступно на этом шаге', getFlowKeyboard());
   }
 });
 
@@ -137,14 +153,14 @@ bot.hears('⬅️ Назад', async (ctx) => {
   const session = await getSession(user.id);
   
   if (!session) {
-    await ctx.reply('Нет активного процесса заполнения');
+    await ctx.reply('Нет активного процесса заполнения', getMainKeyboard());
     return;
   }
   
   if (session.state.startsWith('evening_')) {
     await EveningReportFlow.goBack(ctx, user.id);
   } else {
-    await ctx.reply('Возврат назад недоступен на этом шаге');
+    await ctx.reply('Возврат назад недоступен на этом шаге', getFlowKeyboard());
   }
 });
 
@@ -153,7 +169,7 @@ bot.hears('❌ Отмена', async (ctx) => {
   const session = await getSession(user.id);
   
   if (!session) {
-    await ctx.reply('Нет активного процесса заполнения');
+    await ctx.reply('Нет активного процесса заполнения', getMainKeyboard());
     return;
   }
   

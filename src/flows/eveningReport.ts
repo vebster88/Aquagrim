@@ -17,7 +17,7 @@ import {
 } from '../db';
 import { DialogState } from '../types';
 import { CalculationService } from '../services/CalculationService';
-import { getFlowKeyboard } from '../utils/keyboards';
+import { getFlowKeyboard, getConfirmKeyboard, getMainKeyboard } from '../utils/keyboards';
 
 export class EveningReportFlow {
   /**
@@ -172,20 +172,65 @@ export class EveningReportFlow {
   }
   
   /**
-   * Обрабатывает ввод комментария или пропуск и завершает заполнение
+   * Обрабатывает ввод комментария или пропуск и переходит к подтверждению
    */
   static async handleComment(ctx: Context, userId: string, comment?: string) {
     const session = await getSession(userId);
     if (!session) return;
     
     const context = { ...session.context, report: { ...session.context.report, comment: comment?.trim() || undefined } };
+    await createOrUpdateSession(userId, 'evening_fill_confirm', context);
     
     const siteId = session.context.site_id;
     const reportData = context.report;
     const site = await getSiteById(siteId);
     
     if (!site) {
-      await ctx.reply('❌ Ошибка: площадка не найдена');
+      await ctx.reply('❌ Ошибка: площадка не найдена', getFlowKeyboard());
+      await clearSession(userId);
+      return;
+    }
+    
+    // Выполняем расчеты для предпросмотра
+    const calculations = CalculationService.calculate({
+      qr_amount: reportData.qr_amount,
+      cash_amount: reportData.cash_amount,
+      terminal_amount: reportData.terminal_amount,
+      bonus_target: site.bonus_target,
+    });
+    
+    // Формируем сводку данных для подтверждения
+    const summary = 
+      `📋 Проверьте введенные данные:\n\n` +
+      `👤 Сотрудник: ${reportData.lastname} ${reportData.firstname}\n` +
+      `📱 № QR: ${reportData.qr_number}\n` +
+      `💳 Сумма по QR: ${CalculationService.formatAmount(reportData.qr_amount)}\n` +
+      `💵 Сумма наличных: ${CalculationService.formatAmount(reportData.cash_amount)}\n` +
+      (reportData.terminal_amount ? `💳 Сумма по терминалу: ${CalculationService.formatAmount(reportData.terminal_amount)}\n` : '') +
+      (reportData.comment ? `📝 Комментарий: ${reportData.comment}\n` : '') +
+      `\n📊 Расчеты:\n` +
+      `💰 Выручка: ${CalculationService.formatAmount(calculations.total_revenue)}\n` +
+      `💼 Зарплата: ${CalculationService.formatAmount(calculations.salary)}\n` +
+      `📈 Оборот: ${CalculationService.formatAmount(calculations.total_daily)}\n` +
+      `💵 Нал в конверте: ${CalculationService.formatAmount(calculations.cash_in_envelope)}\n\n` +
+      `Нажмите "✅ Ок" для сохранения или "⬅️ Назад" для редактирования.`;
+    
+    await ctx.reply(summary, getConfirmKeyboard());
+  }
+  
+  /**
+   * Подтверждает и сохраняет отчет
+   */
+  static async handleConfirm(ctx: Context, userId: string) {
+    const session = await getSession(userId);
+    if (!session) return;
+    
+    const siteId = session.context.site_id;
+    const reportData = session.context.report;
+    const site = await getSiteById(siteId);
+    
+    if (!site) {
+      await ctx.reply('❌ Ошибка: площадка не найдена', getFlowKeyboard());
       await clearSession(userId);
       return;
     }
@@ -230,7 +275,8 @@ export class EveningReportFlow {
       `Зарплата: ${CalculationService.formatAmount(calculations.salary)}\n` +
       `Оборот: ${CalculationService.formatAmount(calculations.total_daily)}\n` +
       `Нал в конверте: ${CalculationService.formatAmount(calculations.cash_in_envelope)}\n\n` +
-      `⚠️ Пожалуйста, проверьте соответствие сумм с отчетом.`
+      `⚠️ Пожалуйста, проверьте соответствие сумм с отчетом.`,
+      getMainKeyboard()
     );
   }
   
@@ -249,12 +295,47 @@ export class EveningReportFlow {
       'evening_fill_cash_amount',
       'evening_fill_terminal_amount',
       'evening_fill_comment',
+      'evening_fill_confirm',
     ];
     
     const currentIndex = stateOrder.indexOf(session.state);
     if (currentIndex > 0) {
       const prevState = stateOrder[currentIndex - 1];
       await createOrUpdateSession(userId, prevState, session.context);
+      
+      // Если возвращаемся из состояния подтверждения, показываем сводку заново
+      if (prevState === 'evening_fill_confirm') {
+        const siteId = session.context.site_id;
+        const reportData = session.context.report;
+        const site = await getSiteById(siteId);
+        
+        if (site) {
+          const calculations = CalculationService.calculate({
+            qr_amount: reportData.qr_amount,
+            cash_amount: reportData.cash_amount,
+            terminal_amount: reportData.terminal_amount,
+            bonus_target: site.bonus_target,
+          });
+          
+          const summary = 
+            `📋 Проверьте введенные данные:\n\n` +
+            `👤 Сотрудник: ${reportData.lastname} ${reportData.firstname}\n` +
+            `📱 № QR: ${reportData.qr_number}\n` +
+            `💳 Сумма по QR: ${CalculationService.formatAmount(reportData.qr_amount)}\n` +
+            `💵 Сумма наличных: ${CalculationService.formatAmount(reportData.cash_amount)}\n` +
+            (reportData.terminal_amount ? `💳 Сумма по терминалу: ${CalculationService.formatAmount(reportData.terminal_amount)}\n` : '') +
+            (reportData.comment ? `📝 Комментарий: ${reportData.comment}\n` : '') +
+            `\n📊 Расчеты:\n` +
+            `💰 Выручка: ${CalculationService.formatAmount(calculations.total_revenue)}\n` +
+            `💼 Зарплата: ${CalculationService.formatAmount(calculations.salary)}\n` +
+            `📈 Оборот: ${CalculationService.formatAmount(calculations.total_daily)}\n` +
+            `💵 Нал в конверте: ${CalculationService.formatAmount(calculations.cash_in_envelope)}\n\n` +
+            `Нажмите "✅ Ок" для сохранения или "⬅️ Назад" для редактирования.`;
+          
+          await ctx.reply(summary, getConfirmKeyboard());
+          return;
+        }
+      }
       
       const messages: Partial<Record<DialogState, string>> = {
         evening_fill_lastname: 'Введите фамилию сотрудника:',
@@ -263,7 +344,7 @@ export class EveningReportFlow {
         evening_fill_qr_amount: 'Введите сумму по QR:',
         evening_fill_cash_amount: 'Введите сумму наличных:',
         evening_fill_terminal_amount: 'Введите сумму по терминалу:',
-        evening_fill_comment: 'Введите комментарий:',
+        evening_fill_comment: 'Введите комментарий по итогам дня (или нажмите "Далее" чтобы пропустить):',
       };
       
       await ctx.reply(messages[prevState] || 'Вернулись на предыдущий шаг', getFlowKeyboard());

@@ -34,6 +34,7 @@ export type DialogState =
   | 'evening_fill_cash_amount'
   | 'evening_fill_terminal_amount'
   | 'evening_fill_comment'
+  | 'evening_fill_confirm'
   | 'evening_fill_signature'
   | 'evening_fill_responsible_signature'
   | 'edit_by_lastname_select'

@@ -24,25 +24,31 @@ export class PDFService {
 
     try {
       // Загружаем шрифты DejaVu Sans с поддержкой кириллицы
-      // DejaVu Sans - надежный шрифт с полной поддержкой кириллицы
-      const fontUrls = {
-        normal: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans.ttf',
-        bold: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans-Bold.ttf',
-        italics: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans-Oblique.ttf',
-        bolditalics: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans-BoldOblique.ttf',
-      };
-
-      // Альтернативные источники
-      const altUrls = {
-        normal: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf',
-        bold: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf',
-        italics: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Oblique.ttf',
-        bolditalics: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-BoldOblique.ttf',
-      };
+      // Пробуем разные CDN источники
+      const fontUrls = [
+        {
+          normal: 'https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@master/ttf/DejaVuSans.ttf',
+          bold: 'https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@master/ttf/DejaVuSans-Bold.ttf',
+          italics: 'https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@master/ttf/DejaVuSans-Oblique.ttf',
+          bolditalics: 'https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@master/ttf/DejaVuSans-BoldOblique.ttf',
+        },
+        {
+          normal: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans.ttf',
+          bold: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans-Bold.ttf',
+          italics: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans-Oblique.ttf',
+          bolditalics: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans-BoldOblique.ttf',
+        },
+        {
+          normal: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf',
+          bold: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf',
+          italics: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Oblique.ttf',
+          bolditalics: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-BoldOblique.ttf',
+        },
+      ];
 
       // Пробуем загрузить шрифты из разных источников
       let fontsLoaded = false;
-      for (const urls of [fontUrls, altUrls]) {
+      for (const urls of fontUrls) {
         try {
           console.log(`Attempting to load fonts from: ${urls.normal}`);
           const [normal, bold, italics, bolditalics] = await Promise.all([
@@ -101,9 +107,17 @@ export class PDFService {
       }
 
       if (!fontsLoaded) {
-        console.warn('Could not load DejaVu Sans fonts, PDF will be generated without bold styles (may not support Cyrillic)');
-        // Используем пустой объект вместо null, чтобы избежать ошибок
-        this.fontCache = {};
+        console.warn('Could not load DejaVu Sans fonts, using Helvetica (standard PDF font, may not support Cyrillic)');
+        // Используем Helvetica - стандартный PDF шрифт, который всегда доступен
+        // Но он не поддерживает кириллицу, поэтому лучше загрузить DejaVu Sans
+        this.fontCache = {
+          Helvetica: {
+            normal: 'Helvetica',
+            bold: 'Helvetica-Bold',
+            italics: 'Helvetica-Oblique',
+            bolditalics: 'Helvetica-BoldOblique',
+          },
+        };
       }
 
       return this.fontCache;
@@ -133,7 +147,9 @@ export class PDFService {
    * Возвращает объект с bold стилем, если шрифты загружены
    */
   private static getBoldStyle(): { bold?: boolean } {
-    return PDFService.fontCache && PDFService.fontCache.DejaVuSans ? { bold: true } : {};
+    return (PDFService.fontCache && (PDFService.fontCache.DejaVuSans || PDFService.fontCache.Helvetica)) 
+      ? { bold: true } 
+      : {};
   }
 
   /**
@@ -397,16 +413,18 @@ export class PDFService {
       styles: {
         header: {
           fontSize: 20,
-          ...(PDFService.fontCache && PDFService.fontCache.DejaVuSans ? { bold: true } : {}),
+          ...(PDFService.fontCache && (PDFService.fontCache.DejaVuSans || PDFService.fontCache.Helvetica) ? { bold: true } : {}),
         },
         sectionHeader: {
           fontSize: 16,
-          ...(PDFService.fontCache && PDFService.fontCache.DejaVuSans ? { bold: true } : {}),
+          ...(PDFService.fontCache && (PDFService.fontCache.DejaVuSans || PDFService.fontCache.Helvetica) ? { bold: true } : {}),
           decoration: 'underline',
         },
       },
       defaultStyle: {
-        ...(PDFService.fontCache && PDFService.fontCache.DejaVuSans ? { font: 'DejaVuSans' } : {}),
+        font: PDFService.fontCache && PDFService.fontCache.DejaVuSans 
+          ? 'DejaVuSans' 
+          : (PDFService.fontCache && PDFService.fontCache.Helvetica ? 'Helvetica' : undefined),
         fontSize: 12,
       },
       pageSize: 'A4',

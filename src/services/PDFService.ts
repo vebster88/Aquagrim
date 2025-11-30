@@ -1,234 +1,401 @@
 /**
  * Сервис для генерации PDF отчетов
+ * Использует PDFMake с поддержкой кириллицы через pdfmake-unicode
  */
 
-import PDFDocument from 'pdfkit';
+import PdfPrinter from 'pdfmake';
+import { TDocumentDefinitions } from 'pdfmake/interfaces';
 import { DailyReport, Site } from '../types';
 import { CalculationService } from './CalculationService';
 import { getSiteById } from '../db';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
 
 export class PDFService {
-  // URL шрифта DejaVu Sans с поддержкой кириллицы
-  // Пробуем несколько источников для надежности
-  private static readonly CYRILLIC_FONT_URLS = [
-    'https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@master/ttf/DejaVuSans.ttf',
-    'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf',
-    'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans.ttf',
-  ];
-  
-  // Кэш для шрифта (чтобы не загружать каждый раз)
-  private static fontBuffer: Buffer | null = null;
-  
+  // Кэш для шрифтов
+  private static fontCache: any = null;
+
   /**
-   * Загружает шрифт с поддержкой кириллицы
+   * Загружает шрифты Arial с поддержкой кириллицы
    */
-  private static async loadCyrillicFont(): Promise<Buffer> {
-    if (this.fontBuffer) {
-      return this.fontBuffer;
+  private static async loadFonts(): Promise<any> {
+    if (this.fontCache) {
+      return this.fontCache;
     }
-    
-    // Пробуем загрузить шрифт из разных источников
-    for (const url of this.CYRILLIC_FONT_URLS) {
-      try {
-        console.log(`Attempting to load font from: ${url}`);
-        // Используем встроенный fetch (доступен в Node.js 18+ и Vercel)
-        const response = await fetch(url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0',
-          },
-        });
-        
-        if (!response.ok) {
-          console.warn(`Failed to load font from ${url}: ${response.statusText}`);
+
+    try {
+      // Загружаем шрифты Arial с поддержкой кириллицы
+      // Используем CDN для загрузки шрифтов
+      const fontUrls = {
+        normal: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-Regular.ttf',
+        bold: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-Bold.ttf',
+        italics: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-Italic.ttf',
+        bolditalics: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-BoldItalic.ttf',
+      };
+
+      // Альтернативные источники
+      const altUrls = {
+        normal: 'https://raw.githubusercontent.com/google/fonts/main/apache/arial/Arial-Regular.ttf',
+        bold: 'https://raw.githubusercontent.com/google/fonts/main/apache/arial/Arial-Bold.ttf',
+        italics: 'https://raw.githubusercontent.com/google/fonts/main/apache/arial/Arial-Italic.ttf',
+        bolditalics: 'https://raw.githubusercontent.com/google/fonts/main/apache/arial/Arial-BoldItalic.ttf',
+      };
+
+      // Пробуем загрузить шрифты
+      let fontsLoaded = false;
+      for (const urls of [fontUrls, altUrls]) {
+        try {
+          const [normal, bold, italics, bolditalics] = await Promise.all([
+            fetch(urls.normal).then((r) => (r.ok ? r.arrayBuffer() : null)),
+            fetch(urls.bold).then((r) => (r.ok ? r.arrayBuffer() : null)),
+            fetch(urls.italics).then((r) => (r.ok ? r.arrayBuffer() : null)),
+            fetch(urls.bolditalics).then((r) => (r.ok ? r.arrayBuffer() : null)),
+          ]);
+
+          if (normal && bold && italics && bolditalics) {
+            this.fontCache = {
+              Arial: {
+                normal: Buffer.from(normal),
+                bold: Buffer.from(bold),
+                italics: Buffer.from(italics),
+                bolditalics: Buffer.from(bolditalics),
+              },
+            };
+            fontsLoaded = true;
+            console.log('Arial fonts loaded successfully');
+            break;
+          }
+        } catch (error) {
+          console.warn('Failed to load fonts from source:', error);
           continue;
         }
-        
-        // Получаем данные как ArrayBuffer и конвертируем в Buffer
-        const arrayBuffer = await response.arrayBuffer();
-        this.fontBuffer = Buffer.from(arrayBuffer);
-        
-        if (this.fontBuffer.length > 0) {
-          console.log(`Successfully loaded font from ${url}, size: ${this.fontBuffer.length} bytes`);
-          return this.fontBuffer;
-        }
-      } catch (error) {
-        console.warn(`Error loading font from ${url}:`, error);
-        continue;
       }
+
+      if (!fontsLoaded) {
+        console.warn('Could not load Arial fonts, using default fonts');
+        this.fontCache = {};
+      }
+
+      return this.fontCache;
+    } catch (error) {
+      console.error('Error loading fonts:', error);
+      this.fontCache = {};
+      return this.fontCache;
     }
-    
-    // Если все источники не сработали, выбрасываем ошибку
-    throw new Error('Failed to load Cyrillic font from all sources');
   }
-  
+
+  /**
+   * Создает принтер PDF с поддержкой кириллицы
+   */
+  private static async createPrinter(): Promise<PdfPrinter> {
+    const fonts = await this.loadFonts();
+    return new PdfPrinter(fonts);
+  }
+
   /**
    * Генерирует PDF отчет по площадке и дню
    */
   static async generateReportPDF(report: DailyReport, site?: Site): Promise<Buffer> {
-    const doc = new PDFDocument({
-      size: 'A4',
-      margins: { top: 50, bottom: 50, left: 50, right: 50 },
-      autoFirstPage: true,
-    });
-    
-    const buffers: Buffer[] = [];
-    doc.on('data', buffers.push.bind(buffers));
-    
-    // Загружаем и регистрируем шрифт с поддержкой кириллицы
-    let fontLoaded = false;
-    let tempFontPath: string | null = null;
-    
-    try {
-      const fontBuffer = await this.loadCyrillicFont();
-      
-      if (!fontBuffer || fontBuffer.length === 0) {
-        throw new Error('Font buffer is empty');
-      }
-      
-      // PDFKit требует путь к файлу, а не Buffer
-      // Создаем временный файл для шрифта
-      const tempDir = os.tmpdir();
-      tempFontPath = path.join(tempDir, `dejavu-sans-${Date.now()}.ttf`);
-      fs.writeFileSync(tempFontPath, fontBuffer);
-      
-      // Регистрируем шрифт по пути к файлу
-      doc.registerFont('CyrillicFont', tempFontPath);
-      
-      // Устанавливаем шрифт для всего документа
-      doc.font('CyrillicFont');
-      fontLoaded = true;
-      console.log('Cyrillic font registered and set successfully');
-    } catch (error) {
-      console.error('Could not load Cyrillic font, using default font:', error);
-      // Используем стандартный шрифт, если не удалось загрузить
-      // В этом случае кириллица может отображаться неправильно
-      fontLoaded = false;
-    }
-    
-    // Очистка временного файла после завершения
-    const cleanup = () => {
-      if (tempFontPath && fs.existsSync(tempFontPath)) {
-        try {
-          fs.unlinkSync(tempFontPath);
-        } catch (err) {
-          console.warn('Failed to cleanup temp font file:', err);
-        }
-      }
-    };
-    
-    // Очищаем файл после завершения генерации PDF
-    doc.on('end', cleanup);
-    
-    // Вспомогательная функция для безопасного вывода текста
-    const safeText = (text: string | undefined | null): string => {
-      if (!text) return '';
-      return String(text);
-    };
-    
-    // Заголовок
-    doc.fontSize(20);
-    doc.text(safeText('Отчет по площадке'), { align: 'center' });
-    doc.moveDown();
-    
+    const printer = await this.createPrinter();
+
+    // Форматируем дату
+    const formattedDate = this.formatDate(report.date);
+    const createdAtDate = this.formatDate(new Date().toISOString());
+
+    // Создаем структуру документа
+    const content: any[] = [
+      // Заголовок
+      {
+        text: 'Отчет по площадке',
+        style: 'header',
+        alignment: 'center',
+        margin: [0, 0, 0, 20] as [number, number, number, number],
+      },
+    ];
+
     // Информация о площадке
     if (site) {
-      doc.fontSize(14);
-      doc.text(`${safeText('Площадка')}: ${safeText(site.name)}`, { align: 'left' });
-      doc.text(`${safeText('Дата')}: ${safeText(this.formatDate(report.date))}`, { align: 'left' });
-      doc.text(`${safeText('Ответственный')}: ${safeText(site.phone)}`, { align: 'left' });
-      doc.moveDown();
+      content.push(
+        {
+          text: [
+            { text: 'Площадка: ', bold: true },
+            site.name,
+          ],
+          margin: [0, 0, 0, 5] as [number, number, number, number],
+        },
+        {
+          text: [
+            { text: 'Дата: ', bold: true },
+            formattedDate,
+          ],
+          margin: [0, 0, 0, 5] as [number, number, number, number],
+        },
+        {
+          text: [
+            { text: 'Ответственный: ', bold: true },
+            site.phone,
+          ],
+          margin: [0, 0, 0, 15] as [number, number, number, number],
+        }
+      );
     } else {
-      doc.fontSize(14);
-      doc.text(`${safeText('Дата')}: ${safeText(this.formatDate(report.date))}`, { align: 'left' });
-      doc.moveDown();
+      content.push({
+        text: [
+          { text: 'Дата: ', bold: true },
+          formattedDate,
+        ],
+        margin: [0, 0, 0, 15] as [number, number, number, number],
+      });
     }
-    
+
     // Разделитель
-    doc.moveTo(50, doc.y).lineTo(550, doc.y).stroke();
-    doc.moveDown();
-    
+    content.push({
+      canvas: [
+        {
+          type: 'line',
+          x1: 0,
+          y1: 0,
+          x2: 515,
+          y2: 0,
+          lineWidth: 1,
+        },
+      ],
+      margin: [0, 0, 0, 15] as [number, number, number, number],
+    });
+
     // Данные сотрудника
-    doc.fontSize(16);
-    doc.text(safeText('Данные сотрудника:'), { underline: true });
-    doc.fontSize(12);
-    doc.text(`${safeText('Фамилия')}: ${safeText(report.lastname)}`);
-    doc.text(`${safeText('Имя')}: ${safeText(report.firstname)}`);
-    doc.text(`${safeText('№ QR')}: ${safeText(report.qr_number)}`);
-    doc.moveDown();
-    
-    // Финансовые данные
-    doc.fontSize(16);
-    doc.text(safeText('Финансовые показатели:'), { underline: true });
-    doc.fontSize(12);
-    doc.text(`${safeText('Сумма по QR')}: ${CalculationService.formatAmount(report.qr_amount)}`);
-    doc.text(`${safeText('Сумма наличных')}: ${CalculationService.formatAmount(report.cash_amount)}`);
-    if (report.terminal_amount) {
-      doc.text(`${safeText('Сумма по терминалу')}: ${CalculationService.formatAmount(report.terminal_amount)}`);
-    }
-    doc.moveDown();
-    
-    // Рассчитанные показатели
-    doc.fontSize(16);
-    doc.text(safeText('Расчеты:'), { underline: true });
-    doc.fontSize(12);
-    doc.text(`${safeText('Общая выручка')}: ${CalculationService.formatAmount(report.total_revenue)}`);
-    doc.text(`${safeText('Зарплата (20%)')}: ${CalculationService.formatAmount(report.salary)}`);
-    if (report.bonus_penalty) {
-      doc.text(`${safeText('Бонус/штраф')}: ${CalculationService.formatAmount(report.bonus_penalty)}`);
-    }
-    doc.text(`${safeText('Зарплата ответственного')}: ${CalculationService.formatAmount(report.responsible_salary)}`);
-    doc.text(`${safeText('Общий оборот за день')}: ${CalculationService.formatAmount(report.total_daily)}`);
-    doc.text(`${safeText('Общая сумма наличных')}: ${CalculationService.formatAmount(report.total_cash)}`);
-    doc.text(`${safeText('Общая сумма по QR')}: ${CalculationService.formatAmount(report.total_qr)}`);
-    doc.text(`${safeText('Нал в конверте')}: ${CalculationService.formatAmount(report.cash_in_envelope)}`);
-    doc.moveDown();
-    
-    // Комментарий
-    if (report.comment) {
-      doc.fontSize(16);
-      doc.text(safeText('Комментарий:'), { underline: true });
-      doc.fontSize(12);
-      doc.text(safeText(report.comment));
-      doc.moveDown();
-    }
-    
-    // Подписи
-    doc.moveDown(2);
-    doc.fontSize(14);
-    doc.text(safeText('Подписи:'), { underline: true });
-    doc.moveDown();
-    doc.fontSize(12);
-    if (report.signature) {
-      doc.text(`${safeText('Подпись')}: ${safeText(report.signature)}`);
-    }
-    if (report.responsible_signature) {
-      doc.text(`${safeText('Подпись ответственного')}: ${safeText(report.responsible_signature)}`);
-    }
-    
-    // Футер
-    doc.fontSize(10);
-    doc.text(
-      `${safeText('Отчет создан')}: ${safeText(this.formatDate(new Date().toISOString()))}`,
-      50,
-      doc.page.height - 50,
+    content.push(
       {
-        align: 'left',
+        text: 'Данные сотрудника:',
+        style: 'sectionHeader',
+        margin: [0, 0, 0, 10] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Фамилия: ', bold: true },
+          report.lastname,
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Имя: ', bold: true },
+          report.firstname,
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: '№ QR: ', bold: true },
+          report.qr_number,
+        ],
+        margin: [0, 0, 0, 15] as [number, number, number, number],
       }
     );
-    
-    doc.end();
-    
-    return new Promise((resolve) => {
-      doc.on('end', () => {
-        const pdfBuffer = Buffer.concat(buffers);
-        resolve(pdfBuffer);
+
+    // Финансовые данные
+    content.push(
+      {
+        text: 'Финансовые показатели:',
+        style: 'sectionHeader',
+        margin: [0, 0, 0, 10] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Сумма по QR: ', bold: true },
+          CalculationService.formatAmount(report.qr_amount),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Сумма наличных: ', bold: true },
+          CalculationService.formatAmount(report.cash_amount),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      }
+    );
+
+    if (report.terminal_amount) {
+      content.push({
+        text: [
+          { text: 'Сумма по терминалу: ', bold: true },
+          CalculationService.formatAmount(report.terminal_amount),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
       });
+    }
+
+    content.push({
+      margin: [0, 0, 0, 15] as [number, number, number, number],
+    });
+
+    // Рассчитанные показатели
+    content.push(
+      {
+        text: 'Расчеты:',
+        style: 'sectionHeader',
+        margin: [0, 0, 0, 10] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Общая выручка: ', bold: true },
+          CalculationService.formatAmount(report.total_revenue),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Зарплата (20%): ', bold: true },
+          CalculationService.formatAmount(report.salary),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      }
+    );
+
+    if (report.bonus_penalty) {
+      content.push({
+        text: [
+          { text: 'Бонус/штраф: ', bold: true },
+          CalculationService.formatAmount(report.bonus_penalty),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      });
+    }
+
+    content.push(
+      {
+        text: [
+          { text: 'Зарплата ответственного: ', bold: true },
+          CalculationService.formatAmount(report.responsible_salary),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Общий оборот за день: ', bold: true },
+          CalculationService.formatAmount(report.total_daily),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Общая сумма наличных: ', bold: true },
+          CalculationService.formatAmount(report.total_cash),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Общая сумма по QR: ', bold: true },
+          CalculationService.formatAmount(report.total_qr),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Нал в конверте: ', bold: true },
+          CalculationService.formatAmount(report.cash_in_envelope),
+        ],
+        margin: [0, 0, 0, 15] as [number, number, number, number],
+      }
+    );
+
+    // Комментарий
+    if (report.comment) {
+      content.push(
+        {
+          text: 'Комментарий:',
+          style: 'sectionHeader',
+          margin: [0, 0, 0, 10] as [number, number, number, number],
+        },
+        {
+          text: report.comment,
+          margin: [0, 0, 0, 15] as [number, number, number, number],
+        }
+      );
+    }
+
+    // Подписи
+    content.push({
+      text: 'Подписи:',
+      style: 'sectionHeader',
+      margin: [0, 20, 0, 10] as [number, number, number, number],
+    });
+
+    if (report.signature) {
+      content.push({
+        text: [
+          { text: 'Подпись: ', bold: true },
+          report.signature,
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      });
+    }
+
+    if (report.responsible_signature) {
+      content.push({
+        text: [
+          { text: 'Подпись ответственного: ', bold: true },
+          report.responsible_signature,
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      });
+    }
+
+    const docDefinition: TDocumentDefinitions = {
+      content,
+      styles: {
+        header: {
+          fontSize: 20,
+          bold: true,
+        },
+        sectionHeader: {
+          fontSize: 16,
+          bold: true,
+          decoration: 'underline',
+        },
+      },
+      defaultStyle: {
+        font: PDFService.fontCache && PDFService.fontCache.Arial ? 'Arial' : 'Roboto',
+        fontSize: 12,
+      },
+      pageSize: 'A4',
+      pageMargins: [50, 50, 50, 50] as [number, number, number, number],
+      footer: function (currentPage: number, pageCount: number) {
+        return {
+          text: `Отчет создан: ${createdAtDate} | Страница ${currentPage} из ${pageCount}`,
+          fontSize: 10,
+          alignment: 'left',
+          margin: [50, 10, 50, 0] as [number, number, number, number],
+        };
+      },
+    };
+
+    // Генерируем PDF
+    return new Promise((resolve, reject) => {
+      try {
+        const pdfDoc = printer.createPdfKitDocument(docDefinition);
+        const chunks: Buffer[] = [];
+
+        pdfDoc.on('data', (chunk: Buffer) => {
+          chunks.push(chunk);
+        });
+
+        pdfDoc.on('end', () => {
+          const pdfBuffer = Buffer.concat(chunks);
+          resolve(pdfBuffer);
+        });
+
+        pdfDoc.on('error', (error: Error) => {
+          reject(error);
+        });
+
+        pdfDoc.end();
+      } catch (error) {
+        reject(error);
+      }
     });
   }
-  
+
   /**
    * Форматирует дату для отображения
    */

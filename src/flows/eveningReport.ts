@@ -65,9 +65,13 @@ export class EveningReportFlow {
     
     await createLog(userId, 'evening_fill_started', null, { site_id: siteId });
     
+    // Получаем информацию о площадке для отображения названия
+    const site = await getSiteById(siteId);
+    const siteName = site?.name || 'неизвестная площадка';
+    
     // Редактируем сообщение с выбором площадки и отправляем новое с запросом фамилии
     try {
-      await ctx.editMessageText('Площадка выбрана');
+      await ctx.editMessageText(`Площадка выбрана: ${siteName}`);
     } catch (e) {
       // Если не удалось отредактировать (например, сообщение уже отредактировано), игнорируем
     }

@@ -101,9 +101,9 @@ export class PDFService {
       }
 
       if (!fontsLoaded) {
-        console.warn('Could not load DejaVu Sans fonts, PDF will be generated without custom fonts (may not support Cyrillic)');
-        // Не устанавливаем fontCache, чтобы PDFMake использовал встроенные шрифты
-        this.fontCache = {};
+        console.warn('Could not load DejaVu Sans fonts, PDF will be generated without bold styles (may not support Cyrillic)');
+        // Не устанавливаем fontCache, чтобы избежать ошибок с неопределенными шрифтами
+        this.fontCache = null;
       }
 
       return this.fontCache;
@@ -127,6 +127,13 @@ export class PDFService {
       console.error('Error creating PDF printer:', error);
       throw error;
     }
+  }
+
+  /**
+   * Возвращает объект с bold стилем, если шрифты загружены
+   */
+  private static getBoldStyle(): { bold?: boolean } {
+    return PDFService.fontCache && PDFService.fontCache.DejaVuSans ? { bold: true } : {};
   }
 
   /**
@@ -164,34 +171,34 @@ export class PDFService {
       content.push(
         {
           text: [
-            { text: 'Площадка: ', bold: true },
+            { text: 'Площадка: ', ...this.getBoldStyle() },
             site.name,
           ],
           margin: [0, 0, 0, 5] as [number, number, number, number],
         },
         {
           text: [
-            { text: 'Дата: ', bold: true },
+            { text: 'Дата: ', ...this.getBoldStyle() },
             formattedDate,
           ],
           margin: [0, 0, 0, 5] as [number, number, number, number],
         },
         {
           text: [
-            { text: 'Ответственный: ', bold: true },
+            { text: 'Ответственный: ', ...this.getBoldStyle() },
             site.phone,
           ],
           margin: [0, 0, 0, 15] as [number, number, number, number],
         }
       );
     } else {
-      content.push({
-        text: [
-          { text: 'Дата: ', bold: true },
-          formattedDate,
-        ],
-        margin: [0, 0, 0, 15] as [number, number, number, number],
-      });
+      content.push(        {
+          text: [
+            { text: 'Дата: ', ...this.getBoldStyle() },
+            formattedDate,
+          ],
+          margin: [0, 0, 0, 15] as [number, number, number, number],
+        });
     }
 
     // Разделитель
@@ -218,21 +225,21 @@ export class PDFService {
       },
       {
         text: [
-          { text: 'Фамилия: ', bold: true },
+          { text: 'Фамилия: ', ...this.getBoldStyle() },
           report.lastname,
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
       },
       {
         text: [
-          { text: 'Имя: ', bold: true },
+          { text: 'Имя: ', ...this.getBoldStyle() },
           report.firstname,
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
       },
       {
         text: [
-          { text: '№ QR: ', bold: true },
+          { text: '№ QR: ', ...this.getBoldStyle() },
           report.qr_number,
         ],
         margin: [0, 0, 0, 15] as [number, number, number, number],
@@ -248,14 +255,14 @@ export class PDFService {
       },
       {
         text: [
-          { text: 'Сумма по QR: ', bold: true },
+          { text: 'Сумма по QR: ', ...this.getBoldStyle() },
           CalculationService.formatAmount(report.qr_amount),
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
       },
       {
         text: [
-          { text: 'Сумма наличных: ', bold: true },
+          { text: 'Сумма наличных: ', ...this.getBoldStyle() },
           CalculationService.formatAmount(report.cash_amount),
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
@@ -263,13 +270,13 @@ export class PDFService {
     );
 
     if (report.terminal_amount) {
-      content.push({
-        text: [
-          { text: 'Сумма по терминалу: ', bold: true },
-          CalculationService.formatAmount(report.terminal_amount),
-        ],
-        margin: [0, 0, 0, 5] as [number, number, number, number],
-      });
+      content.push(        {
+          text: [
+            { text: 'Сумма по терминалу: ', ...this.getBoldStyle() },
+            CalculationService.formatAmount(report.terminal_amount),
+          ],
+          margin: [0, 0, 0, 5] as [number, number, number, number],
+        });
     }
 
     // Рассчитанные показатели
@@ -281,14 +288,14 @@ export class PDFService {
       },
       {
         text: [
-          { text: 'Общая выручка: ', bold: true },
+          { text: 'Общая выручка: ', ...this.getBoldStyle() },
           CalculationService.formatAmount(report.total_revenue),
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
       },
       {
         text: [
-          { text: 'Зарплата (20%): ', bold: true },
+          { text: 'Зарплата (20%): ', ...this.getBoldStyle() },
           CalculationService.formatAmount(report.salary),
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
@@ -296,47 +303,47 @@ export class PDFService {
     );
 
     if (report.bonus_penalty) {
-      content.push({
-        text: [
-          { text: 'Бонус/штраф: ', bold: true },
-          CalculationService.formatAmount(report.bonus_penalty),
-        ],
-        margin: [0, 0, 0, 5] as [number, number, number, number],
-      });
+      content.push(        {
+          text: [
+            { text: 'Бонус/штраф: ', ...this.getBoldStyle() },
+            CalculationService.formatAmount(report.bonus_penalty),
+          ],
+          margin: [0, 0, 0, 5] as [number, number, number, number],
+        });
     }
 
     content.push(
       {
         text: [
-          { text: 'Зарплата ответственного: ', bold: true },
+          { text: 'Зарплата ответственного: ', ...this.getBoldStyle() },
           CalculationService.formatAmount(report.responsible_salary),
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
       },
       {
         text: [
-          { text: 'Общий оборот за день: ', bold: true },
+          { text: 'Общий оборот за день: ', ...this.getBoldStyle() },
           CalculationService.formatAmount(report.total_daily),
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
       },
       {
         text: [
-          { text: 'Общая сумма наличных: ', bold: true },
+          { text: 'Общая сумма наличных: ', ...this.getBoldStyle() },
           CalculationService.formatAmount(report.total_cash),
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
       },
       {
         text: [
-          { text: 'Общая сумма по QR: ', bold: true },
+          { text: 'Общая сумма по QR: ', ...this.getBoldStyle() },
           CalculationService.formatAmount(report.total_qr),
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
       },
       {
         text: [
-          { text: 'Нал в конверте: ', bold: true },
+          { text: 'Нал в конверте: ', ...this.getBoldStyle() },
           CalculationService.formatAmount(report.cash_in_envelope),
         ],
         margin: [0, 0, 0, 15] as [number, number, number, number],
@@ -366,23 +373,23 @@ export class PDFService {
     });
 
     if (report.signature) {
-      content.push({
-        text: [
-          { text: 'Подпись: ', bold: true },
-          report.signature,
-        ],
-        margin: [0, 0, 0, 5] as [number, number, number, number],
-      });
+      content.push(        {
+          text: [
+            { text: 'Подпись: ', ...this.getBoldStyle() },
+            report.signature,
+          ],
+          margin: [0, 0, 0, 5] as [number, number, number, number],
+        });
     }
 
     if (report.responsible_signature) {
-      content.push({
-        text: [
-          { text: 'Подпись ответственного: ', bold: true },
-          report.responsible_signature,
-        ],
-        margin: [0, 0, 0, 5] as [number, number, number, number],
-      });
+      content.push(        {
+          text: [
+            { text: 'Подпись ответственного: ', ...this.getBoldStyle() },
+            report.responsible_signature,
+          ],
+          margin: [0, 0, 0, 5] as [number, number, number, number],
+        });
     }
 
     const docDefinition: TDocumentDefinitions = {
@@ -390,11 +397,11 @@ export class PDFService {
       styles: {
         header: {
           fontSize: 20,
-          bold: true,
+          ...(PDFService.fontCache && PDFService.fontCache.DejaVuSans ? { bold: true } : {}),
         },
         sectionHeader: {
           fontSize: 16,
-          bold: true,
+          ...(PDFService.fontCache && PDFService.fontCache.DejaVuSans ? { bold: true } : {}),
           decoration: 'underline',
         },
       },

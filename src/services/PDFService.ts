@@ -26,58 +26,99 @@ export class PDFService {
       // Загружаем шрифты DejaVu Sans с поддержкой кириллицы
       // Пробуем разные CDN источники
       const fontUrls = [
+        // jsdelivr CDN (самый надежный)
         {
+          name: 'jsdelivr',
+          normal: 'https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@2.37/ttf/DejaVuSans.ttf',
+          bold: 'https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@2.37/ttf/DejaVuSans-Bold.ttf',
+          italics: 'https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@2.37/ttf/DejaVuSans-Oblique.ttf',
+          bolditalics: 'https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@2.37/ttf/DejaVuSans-BoldOblique.ttf',
+        },
+        // jsdelivr с другой версией
+        {
+          name: 'jsdelivr-v2',
           normal: 'https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@master/ttf/DejaVuSans.ttf',
           bold: 'https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@master/ttf/DejaVuSans-Bold.ttf',
           italics: 'https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@master/ttf/DejaVuSans-Oblique.ttf',
           bolditalics: 'https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@master/ttf/DejaVuSans-BoldOblique.ttf',
         },
+        // Альтернативный источник - используем Roboto с кириллицей из Google Fonts
         {
+          name: 'google-fonts-roboto',
+          normal: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf',
+          bold: 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4.ttf',
+          italics: 'https://fonts.gstatic.com/s/roboto/v30/KFOkCnqEu92Fr1Mu51xIIzI.ttf',
+          bolditalics: 'https://fonts.gstatic.com/s/roboto/v30/KFOjCnqEu92Fr1Mu51TzBjc6IeQ.ttf',
+        },
+        // GitHub raw (последний вариант)
+        {
+          name: 'github-raw',
           normal: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans.ttf',
           bold: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans-Bold.ttf',
           italics: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans-Oblique.ttf',
           bolditalics: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans-BoldOblique.ttf',
         },
-        {
-          normal: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf',
-          bold: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf',
-          italics: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Oblique.ttf',
-          bolditalics: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-BoldOblique.ttf',
-        },
       ];
 
       // Пробуем загрузить шрифты из разных источников
       let fontsLoaded = false;
+      let loadedFontName = '';
       for (const urls of fontUrls) {
         try {
-          console.log(`Attempting to load fonts from: ${urls.normal}`);
+          console.log(`Attempting to load fonts from source: ${urls.name || 'unknown'}, URL: ${urls.normal}`);
           const [normal, bold, italics, bolditalics] = await Promise.all([
-            fetch(urls.normal).then((r) => {
-              console.log(`Normal font response: ${r.status} ${r.statusText}`);
-              return r.ok ? r.arrayBuffer() : null;
+            fetch(urls.normal, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0',
+                'Accept': '*/*',
+              },
+            }).then((r) => {
+              console.log(`Normal font response from ${urls.name}: ${r.status} ${r.statusText}, Content-Type: ${r.headers.get('content-type')}`);
+              if (r.ok) {
+                return r.arrayBuffer().then((buf) => {
+                  console.log(`Normal font loaded, size: ${buf.byteLength} bytes`);
+                  return buf;
+                });
+              }
+              return null;
             }).catch((e) => {
-              console.warn(`Failed to fetch normal font:`, e);
+              console.warn(`Failed to fetch normal font from ${urls.name}:`, e.message);
               return null;
             }),
-            fetch(urls.bold).then((r) => {
-              console.log(`Bold font response: ${r.status} ${r.statusText}`);
+            fetch(urls.bold, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0',
+                'Accept': '*/*',
+              },
+            }).then((r) => {
+              console.log(`Bold font response from ${urls.name}: ${r.status} ${r.statusText}`);
               return r.ok ? r.arrayBuffer() : null;
             }).catch((e) => {
-              console.warn(`Failed to fetch bold font:`, e);
+              console.warn(`Failed to fetch bold font from ${urls.name}:`, e.message);
               return null;
             }),
-            fetch(urls.italics).then((r) => {
-              console.log(`Italics font response: ${r.status} ${r.statusText}`);
+            fetch(urls.italics, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0',
+                'Accept': '*/*',
+              },
+            }).then((r) => {
+              console.log(`Italics font response from ${urls.name}: ${r.status} ${r.statusText}`);
               return r.ok ? r.arrayBuffer() : null;
             }).catch((e) => {
-              console.warn(`Failed to fetch italics font:`, e);
+              console.warn(`Failed to fetch italics font from ${urls.name}:`, e.message);
               return null;
             }),
-            fetch(urls.bolditalics).then((r) => {
-              console.log(`BoldItalics font response: ${r.status} ${r.statusText}`);
+            fetch(urls.bolditalics, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0',
+                'Accept': '*/*',
+              },
+            }).then((r) => {
+              console.log(`BoldItalics font response from ${urls.name}: ${r.status} ${r.statusText}`);
               return r.ok ? r.arrayBuffer() : null;
             }).catch((e) => {
-              console.warn(`Failed to fetch bolditalics font:`, e);
+              console.warn(`Failed to fetch bolditalics font from ${urls.name}:`, e.message);
               return null;
             }),
           ]);
@@ -86,8 +127,9 @@ export class PDFService {
 
           if (normal && bold && italics && bolditalics) {
             // PDFMake в Node.js принимает Buffer напрямую
+            const fontName = urls.name === 'google-fonts-roboto' ? 'Roboto' : 'DejaVuSans';
             this.fontCache = {
-              DejaVuSans: {
+              [fontName]: {
                 normal: Buffer.from(normal),
                 bold: Buffer.from(bold),
                 italics: Buffer.from(italics),
@@ -95,10 +137,11 @@ export class PDFService {
               },
             };
             fontsLoaded = true;
-            console.log('DejaVu Sans fonts loaded successfully as Buffers');
+            loadedFontName = fontName;
+            console.log(`${fontName} fonts loaded successfully as Buffers from source: ${urls.name}`);
             break;
           } else {
-            console.warn('Not all fonts loaded successfully, trying next source...');
+            console.warn(`Not all fonts loaded successfully from ${urls.name}, trying next source...`);
           }
         } catch (error) {
           console.warn('Failed to load fonts from source:', error);
@@ -147,7 +190,7 @@ export class PDFService {
    * Возвращает объект с bold стилем, если шрифты загружены
    */
   private static getBoldStyle(): { bold?: boolean } {
-    return (PDFService.fontCache && (PDFService.fontCache.DejaVuSans || PDFService.fontCache.Helvetica)) 
+    return (PDFService.fontCache && (PDFService.fontCache.DejaVuSans || PDFService.fontCache.Roboto || PDFService.fontCache.Helvetica)) 
       ? { bold: true } 
       : {};
   }
@@ -413,18 +456,20 @@ export class PDFService {
       styles: {
         header: {
           fontSize: 20,
-          ...(PDFService.fontCache && (PDFService.fontCache.DejaVuSans || PDFService.fontCache.Helvetica) ? { bold: true } : {}),
+          ...(PDFService.fontCache && (PDFService.fontCache.DejaVuSans || PDFService.fontCache.Roboto || PDFService.fontCache.Helvetica) ? { bold: true } : {}),
         },
         sectionHeader: {
           fontSize: 16,
-          ...(PDFService.fontCache && (PDFService.fontCache.DejaVuSans || PDFService.fontCache.Helvetica) ? { bold: true } : {}),
+          ...(PDFService.fontCache && (PDFService.fontCache.DejaVuSans || PDFService.fontCache.Roboto || PDFService.fontCache.Helvetica) ? { bold: true } : {}),
           decoration: 'underline',
         },
       },
       defaultStyle: {
         font: PDFService.fontCache && PDFService.fontCache.DejaVuSans 
           ? 'DejaVuSans' 
-          : (PDFService.fontCache && PDFService.fontCache.Helvetica ? 'Helvetica' : undefined),
+          : (PDFService.fontCache && PDFService.fontCache.Roboto
+            ? 'Roboto'
+            : (PDFService.fontCache && PDFService.fontCache.Helvetica ? 'Helvetica' : undefined)),
         fontSize: 12,
       },
       pageSize: 'A4',

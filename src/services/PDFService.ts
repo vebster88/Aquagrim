@@ -43,11 +43,20 @@ export class PDFService {
           bolditalics: 'https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@master/ttf/DejaVuSans-BoldOblique.ttf',
         },
         // Альтернативный источник - используем Roboto с кириллицей из Google Fonts
+        // Используем правильные URL для Roboto
         {
           name: 'google-fonts-roboto',
           normal: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxP.ttf',
           bold: 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4.ttf',
           italics: 'https://fonts.gstatic.com/s/roboto/v30/KFOkCnqEu92Fr1Mu51xIIzI.ttf',
+          bolditalics: 'https://fonts.gstatic.com/s/roboto/v30/KFOjCnqEu92Fr1Mu51TzBjc6IeQ.ttf',
+        },
+        // Альтернативные URL для Roboto (если первые не работают)
+        {
+          name: 'google-fonts-roboto-alt',
+          normal: 'https://fonts.gstatic.com/s/roboto/v30/KFOmCnqEu92Fr1Mu4mxPKTM1K9nS.ttf',
+          bold: 'https://fonts.gstatic.com/s/roboto/v30/KFOlCnqEu92Fr1MmWUlfBBc4PKTM1K9nS.ttf',
+          italics: 'https://fonts.gstatic.com/s/roboto/v30/KFOkCnqEu92Fr1Mu51xIIzIFKw.ttf',
           bolditalics: 'https://fonts.gstatic.com/s/roboto/v30/KFOjCnqEu92Fr1Mu51TzBjc6IeQ.ttf',
         },
         // GitHub raw (последний вариант)
@@ -125,20 +134,28 @@ export class PDFService {
 
           console.log(`Fonts loaded: normal=${!!normal}, bold=${!!bold}, italics=${!!italics}, bolditalics=${!!bolditalics}`);
 
-          if (normal && bold && italics && bolditalics) {
-            // PDFMake в Node.js принимает Buffer напрямую
+          // Если загрузился хотя бы normal, используем его для всех вариантов (fallback)
+          if (normal) {
             const fontName = urls.name === 'google-fonts-roboto' ? 'Roboto' : 'DejaVuSans';
+            const normalBuffer = Buffer.from(normal);
+            
+            // Используем загруженные шрифты или fallback на normal
             this.fontCache = {
               [fontName]: {
-                normal: Buffer.from(normal),
-                bold: Buffer.from(bold),
-                italics: Buffer.from(italics),
-                bolditalics: Buffer.from(bolditalics),
+                normal: normalBuffer,
+                bold: bold ? Buffer.from(bold) : normalBuffer, // Fallback на normal
+                italics: italics ? Buffer.from(italics) : normalBuffer, // Fallback на normal
+                bolditalics: bolditalics ? Buffer.from(bolditalics) : normalBuffer, // Fallback на normal
               },
             };
             fontsLoaded = true;
             loadedFontName = fontName;
-            console.log(`${fontName} fonts loaded successfully as Buffers from source: ${urls.name}`);
+            
+            if (bold && italics && bolditalics) {
+              console.log(`${fontName} fonts loaded successfully (all variants) from source: ${urls.name}`);
+            } else {
+              console.warn(`${fontName} fonts loaded with fallback (using normal for missing variants) from source: ${urls.name}`);
+            }
             break;
           } else {
             console.warn(`Not all fonts loaded successfully from ${urls.name}, trying next source...`);

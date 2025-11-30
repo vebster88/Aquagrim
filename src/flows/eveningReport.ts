@@ -64,7 +64,6 @@ export class EveningReportFlow {
     
     await createLog(userId, 'evening_fill_started', null, { site_id: siteId });
     
-    await ctx.editMessageText('Введите фамилию сотрудника:');
     await ctx.reply('Введите фамилию сотрудника:', getFlowKeyboard());
   }
   
@@ -104,7 +103,7 @@ export class EveningReportFlow {
     const context = { ...session.context, report: { ...session.context.report, qr_number: qrNumber.trim() } };
     await createOrUpdateSession(userId, 'evening_fill_qr_amount', context);
     
-    await ctx.reply('Введите сумму по QR (в рублях, например: 1000 или 1000.50):', getFlowKeyboard());
+    await ctx.reply('Введите сумму по QR (в рублях, например: 1000):', getFlowKeyboard());
   }
   
   /**
@@ -114,7 +113,7 @@ export class EveningReportFlow {
     const amount = CalculationService.parseAmount(input);
     
     if (amount === null) {
-      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 1000 или 1000.50)', getFlowKeyboard());
+      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 1000)', getFlowKeyboard());
       return;
     }
     
@@ -134,7 +133,7 @@ export class EveningReportFlow {
     const amount = CalculationService.parseAmount(input);
     
     if (amount === null) {
-      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 1000 или 1000.50)', getFlowKeyboard());
+      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 1000)', getFlowKeyboard());
       return;
     }
     
@@ -202,6 +201,7 @@ export class EveningReportFlow {
     // Формируем сводку данных для подтверждения
     const summary = 
       `📋 Проверьте введенные данные:\n\n` +
+      `🏢 Площадка: ${site.name}\n` +
       `👤 Сотрудник: ${reportData.lastname} ${reportData.firstname}\n` +
       `📱 № QR: ${reportData.qr_number}\n` +
       `💳 Сумма по QR: ${CalculationService.formatAmount(reportData.qr_amount)}\n` +
@@ -319,6 +319,7 @@ export class EveningReportFlow {
           
           const summary = 
             `📋 Проверьте введенные данные:\n\n` +
+            `🏢 Площадка: ${site.name}\n` +
             `👤 Сотрудник: ${reportData.lastname} ${reportData.firstname}\n` +
             `📱 № QR: ${reportData.qr_number}\n` +
             `💳 Сумма по QR: ${CalculationService.formatAmount(reportData.qr_amount)}\n` +

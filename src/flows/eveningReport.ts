@@ -39,6 +39,7 @@ export class EveningReportFlow {
         site_id: sites[0].id,
         report: {},
       });
+      await createLog(userId, 'evening_fill_started', null, { site_id: sites[0].id });
       await ctx.reply('Введите фамилию сотрудника:', getFlowKeyboard());
       return;
     }
@@ -64,6 +65,12 @@ export class EveningReportFlow {
     
     await createLog(userId, 'evening_fill_started', null, { site_id: siteId });
     
+    // Редактируем сообщение с выбором площадки и отправляем новое с запросом фамилии
+    try {
+      await ctx.editMessageText('Площадка выбрана');
+    } catch (e) {
+      // Если не удалось отредактировать (например, сообщение уже отредактировано), игнорируем
+    }
     await ctx.reply('Введите фамилию сотрудника:', getFlowKeyboard());
   }
   

@@ -15,6 +15,7 @@ export class PDFService {
 
   /**
    * Загружает шрифты Arial с поддержкой кириллицы
+   * Использует Buffer напрямую для совместимости с serverless окружением
    */
   private static async loadFonts(): Promise<any> {
     if (this.fontCache) {
@@ -23,34 +24,34 @@ export class PDFService {
 
     try {
       // Загружаем шрифты Arial с поддержкой кириллицы
-      // Используем CDN для загрузки шрифтов
       const fontUrls = {
-        normal: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-Regular.ttf',
-        bold: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-Bold.ttf',
-        italics: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-Italic.ttf',
-        bolditalics: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-BoldItalic.ttf',
-      };
-
-      // Альтернативные источники
-      const altUrls = {
         normal: 'https://raw.githubusercontent.com/google/fonts/main/apache/arial/Arial-Regular.ttf',
         bold: 'https://raw.githubusercontent.com/google/fonts/main/apache/arial/Arial-Bold.ttf',
         italics: 'https://raw.githubusercontent.com/google/fonts/main/apache/arial/Arial-Italic.ttf',
         bolditalics: 'https://raw.githubusercontent.com/google/fonts/main/apache/arial/Arial-BoldItalic.ttf',
       };
 
-      // Пробуем загрузить шрифты
+      // Альтернативные источники
+      const altUrls = {
+        normal: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-Regular.ttf',
+        bold: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-Bold.ttf',
+        italics: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-Italic.ttf',
+        bolditalics: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-BoldItalic.ttf',
+      };
+
+      // Пробуем загрузить шрифты из разных источников
       let fontsLoaded = false;
       for (const urls of [fontUrls, altUrls]) {
         try {
           const [normal, bold, italics, bolditalics] = await Promise.all([
-            fetch(urls.normal).then((r) => (r.ok ? r.arrayBuffer() : null)),
-            fetch(urls.bold).then((r) => (r.ok ? r.arrayBuffer() : null)),
-            fetch(urls.italics).then((r) => (r.ok ? r.arrayBuffer() : null)),
-            fetch(urls.bolditalics).then((r) => (r.ok ? r.arrayBuffer() : null)),
+            fetch(urls.normal).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null),
+            fetch(urls.bold).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null),
+            fetch(urls.italics).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null),
+            fetch(urls.bolditalics).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null),
           ]);
 
           if (normal && bold && italics && bolditalics) {
+            // PDFMake в Node.js принимает Buffer напрямую
             this.fontCache = {
               Arial: {
                 normal: Buffer.from(normal),
@@ -60,7 +61,7 @@ export class PDFService {
               },
             };
             fontsLoaded = true;
-            console.log('Arial fonts loaded successfully');
+            console.log('Arial fonts loaded successfully as Buffers');
             break;
           }
         } catch (error) {
@@ -70,7 +71,7 @@ export class PDFService {
       }
 
       if (!fontsLoaded) {
-        console.warn('Could not load Arial fonts, using default fonts');
+        console.warn('Could not load Arial fonts, using default Roboto font (may not support Cyrillic)');
         this.fontCache = {};
       }
 
@@ -86,15 +87,31 @@ export class PDFService {
    * Создает принтер PDF с поддержкой кириллицы
    */
   private static async createPrinter(): Promise<PdfPrinter> {
-    const fonts = await this.loadFonts();
-    return new PdfPrinter(fonts);
+    try {
+      const fonts = await this.loadFonts();
+      console.log('Creating PDF printer with fonts:', Object.keys(fonts));
+      const printer = new PdfPrinter(fonts);
+      return printer;
+    } catch (error) {
+      console.error('Error creating PDF printer:', error);
+      throw error;
+    }
   }
 
   /**
    * Генерирует PDF отчет по площадке и дню
    */
   static async generateReportPDF(report: DailyReport, site?: Site): Promise<Buffer> {
-    const printer = await this.createPrinter();
+    console.log(`Starting PDF generation for report ${report.id}`);
+    let printer: PdfPrinter;
+    
+    try {
+      printer = await this.createPrinter();
+      console.log('PDF printer created successfully');
+    } catch (error) {
+      console.error('Failed to create PDF printer:', error);
+      throw new Error(`Failed to create PDF printer: ${error instanceof Error ? error.message : String(error)}`);
+    }
 
     // Форматируем дату
     const formattedDate = this.formatDate(report.date);
@@ -371,9 +388,12 @@ export class PDFService {
     };
 
     // Генерируем PDF
+    console.log('Creating PDF document...');
     return new Promise((resolve, reject) => {
       try {
+        console.log('Calling createPdfKitDocument...');
         const pdfDoc = printer.createPdfKitDocument(docDefinition);
+        console.log('PDF document created, setting up event handlers...');
         const chunks: Buffer[] = [];
 
         pdfDoc.on('data', (chunk: Buffer) => {
@@ -381,16 +401,28 @@ export class PDFService {
         });
 
         pdfDoc.on('end', () => {
+          console.log(`PDF generation completed, total chunks: ${chunks.length}`);
           const pdfBuffer = Buffer.concat(chunks);
+          console.log(`PDF buffer size: ${pdfBuffer.length} bytes`);
           resolve(pdfBuffer);
         });
 
         pdfDoc.on('error', (error: Error) => {
+          console.error('PDF generation error (from pdfDoc):', error);
+          console.error('Error stack:', error.stack);
           reject(error);
         });
 
+        console.log('Starting PDF document generation...');
         pdfDoc.end();
       } catch (error) {
+        console.error('PDF creation error (catch block):', error);
+        const errorDetails = error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+        } : { error: String(error) };
+        console.error('PDF creation error details:', JSON.stringify(errorDetails, null, 2));
         reject(error);
       }
     });

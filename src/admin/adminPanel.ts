@@ -138,7 +138,16 @@ export class AdminPanel {
         await createLog(userId, 'pdf_generated', null, { report_id: report.id, site_id: siteId });
       } catch (error) {
         console.error('Error generating PDF:', error);
-        await ctx.reply(`❌ Ошибка при генерации PDF для отчета ${report.id}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error('Error details:', {
+          message: errorMessage,
+          stack: error instanceof Error ? error.stack : undefined,
+          reportId: report.id,
+        });
+        await ctx.reply(
+          `❌ Ошибка при генерации PDF для отчета ${report.id}\n` +
+          `Ошибка: ${errorMessage}`
+        );
       }
     }
   }

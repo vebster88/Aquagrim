@@ -26,35 +26,66 @@ export class PDFService {
 
     try {
       // Пытаемся загрузить из локальных файлов
-      const fontsPath = path.join(process.cwd(), 'fonts');
-      const localFonts = {
-        normal: path.join(fontsPath, 'DejaVuSans.ttf'),
-        bold: path.join(fontsPath, 'DejaVuSans-Bold.ttf'),
-        italics: path.join(fontsPath, 'DejaVuSans-Oblique.ttf'),
-        bolditalics: path.join(fontsPath, 'DejaVuSans-BoldOblique.ttf'),
-      };
+      // Пробуем разные пути для совместимости с разными окружениями
+      const possiblePaths = [
+        path.join(process.cwd(), 'fonts'), // Локальная разработка и некоторые серверы
+        path.join(process.cwd(), '..', 'fonts'), // Vercel (код в dist/, шрифты в корне)
+        path.join(__dirname, '..', '..', 'fonts'), // Относительно скомпилированного файла
+        path.join(__dirname, '..', 'fonts'), // Альтернативный путь
+      ];
 
-      // Проверяем, есть ли локальные шрифты
-      if (
-        fs.existsSync(localFonts.normal) &&
-        fs.existsSync(localFonts.bold) &&
-        fs.existsSync(localFonts.italics) &&
-        fs.existsSync(localFonts.bolditalics)
-      ) {
-        console.log('Loading fonts from local files...');
-        this.fontCache = {
-          DejaVuSans: {
-            normal: fs.readFileSync(localFonts.normal),
-            bold: fs.readFileSync(localFonts.bold),
-            italics: fs.readFileSync(localFonts.italics),
-            bolditalics: fs.readFileSync(localFonts.bolditalics),
-          },
-        };
-        console.log('DejaVu Sans fonts loaded successfully from local files');
-        return this.fontCache;
-      } else {
-        console.log('Local fonts not found, trying to load from CDN...');
+      let fontsPath: string | null = null;
+      for (const testPath of possiblePaths) {
+        const testFile = path.join(testPath, 'DejaVuSans.ttf');
+        if (fs.existsSync(testFile)) {
+          fontsPath = testPath;
+          console.log(`Found fonts directory at: ${fontsPath}`);
+          break;
+        }
       }
+
+      if (fontsPath) {
+        const localFonts = {
+          normal: path.join(fontsPath, 'DejaVuSans.ttf'),
+          bold: path.join(fontsPath, 'DejaVuSans-Bold.ttf'),
+          italics: path.join(fontsPath, 'DejaVuSans-Oblique.ttf'),
+          bolditalics: path.join(fontsPath, 'DejaVuSans-BoldOblique.ttf'),
+        };
+
+        // Проверяем, есть ли все необходимые файлы
+        const allExist = 
+          fs.existsSync(localFonts.normal) &&
+          fs.existsSync(localFonts.bold) &&
+          fs.existsSync(localFonts.italics) &&
+          fs.existsSync(localFonts.bolditalics);
+
+        if (allExist) {
+          console.log('Loading fonts from local files...');
+          this.fontCache = {
+            DejaVuSans: {
+              normal: fs.readFileSync(localFonts.normal),
+              bold: fs.readFileSync(localFonts.bold),
+              italics: fs.readFileSync(localFonts.italics),
+              bolditalics: fs.readFileSync(localFonts.bolditalics),
+            },
+          };
+          console.log('DejaVu Sans fonts loaded successfully from local files');
+          return this.fontCache;
+        } else {
+          console.log('Some font files are missing, checking which ones...');
+          console.log(`Normal exists: ${fs.existsSync(localFonts.normal)}`);
+          console.log(`Bold exists: ${fs.existsSync(localFonts.bold)}`);
+          console.log(`Italics exists: ${fs.existsSync(localFonts.italics)}`);
+          console.log(`BoldItalics exists: ${fs.existsSync(localFonts.bolditalics)}`);
+        }
+      } else {
+        console.log('Local fonts directory not found. Tried paths:');
+        possiblePaths.forEach(p => console.log(`  - ${p} (exists: ${fs.existsSync(p)})`));
+        console.log('Current working directory:', process.cwd());
+        console.log('__dirname:', __dirname);
+      }
+      
+      console.log('Local fonts not found, trying to load from CDN...');
 
       // Загружаем шрифты DejaVu Sans с поддержкой кириллицы
       // Пробуем разные CDN источники

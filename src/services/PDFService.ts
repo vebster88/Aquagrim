@@ -43,12 +43,39 @@ export class PDFService {
       let fontsLoaded = false;
       for (const urls of [fontUrls, altUrls]) {
         try {
+          console.log(`Attempting to load fonts from: ${urls.normal}`);
           const [normal, bold, italics, bolditalics] = await Promise.all([
-            fetch(urls.normal).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null),
-            fetch(urls.bold).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null),
-            fetch(urls.italics).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null),
-            fetch(urls.bolditalics).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null),
+            fetch(urls.normal).then((r) => {
+              console.log(`Normal font response: ${r.status} ${r.statusText}`);
+              return r.ok ? r.arrayBuffer() : null;
+            }).catch((e) => {
+              console.warn(`Failed to fetch normal font:`, e);
+              return null;
+            }),
+            fetch(urls.bold).then((r) => {
+              console.log(`Bold font response: ${r.status} ${r.statusText}`);
+              return r.ok ? r.arrayBuffer() : null;
+            }).catch((e) => {
+              console.warn(`Failed to fetch bold font:`, e);
+              return null;
+            }),
+            fetch(urls.italics).then((r) => {
+              console.log(`Italics font response: ${r.status} ${r.statusText}`);
+              return r.ok ? r.arrayBuffer() : null;
+            }).catch((e) => {
+              console.warn(`Failed to fetch italics font:`, e);
+              return null;
+            }),
+            fetch(urls.bolditalics).then((r) => {
+              console.log(`BoldItalics font response: ${r.status} ${r.statusText}`);
+              return r.ok ? r.arrayBuffer() : null;
+            }).catch((e) => {
+              console.warn(`Failed to fetch bolditalics font:`, e);
+              return null;
+            }),
           ]);
+
+          console.log(`Fonts loaded: normal=${!!normal}, bold=${!!bold}, italics=${!!italics}, bolditalics=${!!bolditalics}`);
 
           if (normal && bold && italics && bolditalics) {
             // PDFMake в Node.js принимает Buffer напрямую
@@ -63,6 +90,8 @@ export class PDFService {
             fontsLoaded = true;
             console.log('Arial fonts loaded successfully as Buffers');
             break;
+          } else {
+            console.warn('Not all fonts loaded successfully, trying next source...');
           }
         } catch (error) {
           console.warn('Failed to load fonts from source:', error);
@@ -241,16 +270,12 @@ export class PDFService {
       });
     }
 
-    content.push({
-      margin: [0, 0, 0, 15] as [number, number, number, number],
-    });
-
     // Рассчитанные показатели
     content.push(
       {
         text: 'Расчеты:',
         style: 'sectionHeader',
-        margin: [0, 0, 0, 10] as [number, number, number, number],
+        margin: [0, 15, 0, 10] as [number, number, number, number],
       },
       {
         text: [

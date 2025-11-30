@@ -10,7 +10,7 @@ export interface CalculationInput {
   cash_amount: number; // в копейках
   terminal_amount?: number; // в копейках
   bonus_penalty?: number; // в копейках
-  bonus_target?: number; // в копейках (бонусная планка)
+  bonus_target?: string | number; // строка с бонусными планками через запятую (в копейках) или число для обратной совместимости
 }
 
 export class CalculationService {
@@ -18,7 +18,8 @@ export class CalculationService {
    * Рассчитывает все финансовые показатели для отчета
    */
   static calculate(input: CalculationInput): CalculationResult {
-    const { qr_amount, cash_amount, terminal_amount = 0, bonus_penalty = 0, bonus_target = 0 } = input;
+    const { qr_amount, cash_amount, terminal_amount = 0, bonus_penalty = 0 } = input;
+    // bonus_target больше не используется в расчетах, но оставлен для обратной совместимости
     
     // Общая выручка
     const total_revenue = qr_amount + cash_amount + terminal_amount;

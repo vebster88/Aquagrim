@@ -51,7 +51,7 @@ export interface Site {
   id: string;
   name: string;
   responsible_user_id: string;
-  bonus_target: number; // в копейках
+  bonus_target: string; // строка с бонусными планками через запятую (в копейках, например: "100000,200000,300000")
   phone: string;
   date: string; // YYYY-MM-DD
   status: 'morning_filled' | 'evening_filled' | 'completed';

@@ -23,20 +23,21 @@ export class PDFService {
     }
 
     try {
-      // Загружаем шрифты Arial с поддержкой кириллицы
+      // Загружаем шрифты DejaVu Sans с поддержкой кириллицы
+      // DejaVu Sans - надежный шрифт с полной поддержкой кириллицы
       const fontUrls = {
-        normal: 'https://raw.githubusercontent.com/google/fonts/main/apache/arial/Arial-Regular.ttf',
-        bold: 'https://raw.githubusercontent.com/google/fonts/main/apache/arial/Arial-Bold.ttf',
-        italics: 'https://raw.githubusercontent.com/google/fonts/main/apache/arial/Arial-Italic.ttf',
-        bolditalics: 'https://raw.githubusercontent.com/google/fonts/main/apache/arial/Arial-BoldItalic.ttf',
+        normal: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans.ttf',
+        bold: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans-Bold.ttf',
+        italics: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans-Oblique.ttf',
+        bolditalics: 'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans-BoldOblique.ttf',
       };
 
       // Альтернативные источники
       const altUrls = {
-        normal: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-Regular.ttf',
-        bold: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-Bold.ttf',
-        italics: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-Italic.ttf',
-        bolditalics: 'https://github.com/google/fonts/raw/main/apache/arial/Arial-BoldItalic.ttf',
+        normal: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf',
+        bold: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Bold.ttf',
+        italics: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-Oblique.ttf',
+        bolditalics: 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans-BoldOblique.ttf',
       };
 
       // Пробуем загрузить шрифты из разных источников
@@ -80,7 +81,7 @@ export class PDFService {
           if (normal && bold && italics && bolditalics) {
             // PDFMake в Node.js принимает Buffer напрямую
             this.fontCache = {
-              Arial: {
+              DejaVuSans: {
                 normal: Buffer.from(normal),
                 bold: Buffer.from(bold),
                 italics: Buffer.from(italics),
@@ -88,7 +89,7 @@ export class PDFService {
               },
             };
             fontsLoaded = true;
-            console.log('Arial fonts loaded successfully as Buffers');
+            console.log('DejaVu Sans fonts loaded successfully as Buffers');
             break;
           } else {
             console.warn('Not all fonts loaded successfully, trying next source...');
@@ -100,7 +101,8 @@ export class PDFService {
       }
 
       if (!fontsLoaded) {
-        console.warn('Could not load Arial fonts, using default Roboto font (may not support Cyrillic)');
+        console.warn('Could not load DejaVu Sans fonts, PDF will be generated without custom fonts (may not support Cyrillic)');
+        // Не устанавливаем fontCache, чтобы PDFMake использовал встроенные шрифты
         this.fontCache = {};
       }
 
@@ -397,7 +399,7 @@ export class PDFService {
         },
       },
       defaultStyle: {
-        font: PDFService.fontCache && PDFService.fontCache.Arial ? 'Arial' : 'Roboto',
+        ...(PDFService.fontCache && PDFService.fontCache.DejaVuSans ? { font: 'DejaVuSans' } : {}),
         fontSize: 12,
       },
       pageSize: 'A4',

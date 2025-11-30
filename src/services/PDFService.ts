@@ -6,10 +6,18 @@ import PDFDocument from 'pdfkit';
 import { DailyReport, Site } from '../types';
 import { CalculationService } from './CalculationService';
 import { getSiteById } from '../db';
+import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 export class PDFService {
-  // URL шрифта DejaVu Sans с поддержкой кириллицы (публичный CDN)
-  private static readonly CYRILLIC_FONT_URL = 'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf';
+  // URL шрифта DejaVu Sans с поддержкой кириллицы
+  // Пробуем несколько источников для надежности
+  private static readonly CYRILLIC_FONT_URLS = [
+    'https://cdn.jsdelivr.net/gh/dejavu-fonts/dejavu-fonts@master/ttf/DejaVuSans.ttf',
+    'https://github.com/dejavu-fonts/dejavu-fonts/raw/master/ttf/DejaVuSans.ttf',
+    'https://raw.githubusercontent.com/dejavu-fonts/dejavu-fonts/master/ttf/DejaVuSans.ttf',
+  ];
   
   // Кэш для шрифта (чтобы не загружать каждый раз)
   private static fontBuffer: Buffer | null = null;
@@ -22,24 +30,38 @@ export class PDFService {
       return this.fontBuffer;
     }
     
-    try {
-      // Используем встроенный fetch (доступен в Node.js 18+ и Vercel)
-      // Vercel Functions поддерживают встроенный fetch
-      const response = await fetch(this.CYRILLIC_FONT_URL);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to load font: ${response.statusText}`);
+    // Пробуем загрузить шрифт из разных источников
+    for (const url of this.CYRILLIC_FONT_URLS) {
+      try {
+        console.log(`Attempting to load font from: ${url}`);
+        // Используем встроенный fetch (доступен в Node.js 18+ и Vercel)
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0',
+          },
+        });
+        
+        if (!response.ok) {
+          console.warn(`Failed to load font from ${url}: ${response.statusText}`);
+          continue;
+        }
+        
+        // Получаем данные как ArrayBuffer и конвертируем в Buffer
+        const arrayBuffer = await response.arrayBuffer();
+        this.fontBuffer = Buffer.from(arrayBuffer);
+        
+        if (this.fontBuffer.length > 0) {
+          console.log(`Successfully loaded font from ${url}, size: ${this.fontBuffer.length} bytes`);
+          return this.fontBuffer;
+        }
+      } catch (error) {
+        console.warn(`Error loading font from ${url}:`, error);
+        continue;
       }
-      
-      // Получаем данные как ArrayBuffer и конвертируем в Buffer
-      const arrayBuffer = await response.arrayBuffer();
-      this.fontBuffer = Buffer.from(arrayBuffer);
-      return this.fontBuffer;
-    } catch (error) {
-      console.error('Error loading Cyrillic font:', error);
-      // Если не удалось загрузить, выбрасываем ошибку
-      throw error;
     }
+    
+    // Если все источники не сработали, выбрасываем ошибку
+    throw new Error('Failed to load Cyrillic font from all sources');
   }
   
   /**
@@ -56,15 +78,49 @@ export class PDFService {
     doc.on('data', buffers.push.bind(buffers));
     
     // Загружаем и регистрируем шрифт с поддержкой кириллицы
+    let fontLoaded = false;
+    let tempFontPath: string | null = null;
+    
     try {
       const fontBuffer = await this.loadCyrillicFont();
-      doc.registerFont('CyrillicFont', fontBuffer);
+      
+      if (!fontBuffer || fontBuffer.length === 0) {
+        throw new Error('Font buffer is empty');
+      }
+      
+      // PDFKit требует путь к файлу, а не Buffer
+      // Создаем временный файл для шрифта
+      const tempDir = os.tmpdir();
+      tempFontPath = path.join(tempDir, `dejavu-sans-${Date.now()}.ttf`);
+      fs.writeFileSync(tempFontPath, fontBuffer);
+      
+      // Регистрируем шрифт по пути к файлу
+      doc.registerFont('CyrillicFont', tempFontPath);
+      
+      // Устанавливаем шрифт для всего документа
       doc.font('CyrillicFont');
+      fontLoaded = true;
+      console.log('Cyrillic font registered and set successfully');
     } catch (error) {
-      console.warn('Could not load Cyrillic font, using default font:', error);
+      console.error('Could not load Cyrillic font, using default font:', error);
       // Используем стандартный шрифт, если не удалось загрузить
       // В этом случае кириллица может отображаться неправильно
+      fontLoaded = false;
     }
+    
+    // Очистка временного файла после завершения
+    const cleanup = () => {
+      if (tempFontPath && fs.existsSync(tempFontPath)) {
+        try {
+          fs.unlinkSync(tempFontPath);
+        } catch (err) {
+          console.warn('Failed to cleanup temp font file:', err);
+        }
+      }
+    };
+    
+    // Очищаем файл после завершения генерации PDF
+    doc.on('end', cleanup);
     
     // Вспомогательная функция для безопасного вывода текста
     const safeText = (text: string | undefined | null): string => {

@@ -528,7 +528,7 @@ export class PDFService {
           { text: 'Подпись: ', ...this.getBoldStyle() },
           signatureValue,
         ],
-        margin: [0, 0, 0, 5] as [number, number, number, number],
+        margin: [0, 0, 0, 20] as [number, number, number, number],
       },
       {
         text: [

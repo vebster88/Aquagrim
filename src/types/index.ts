@@ -85,6 +85,10 @@ export interface DailyReport {
   pdf_url?: string;
   created_at: string;
   updated_at: string;
+  /**
+   * Служебное поле для миграции: true, если отчет уже приведен к рублям.
+   */
+  migrated_to_rubles?: boolean;
 }
 
 export interface Log {

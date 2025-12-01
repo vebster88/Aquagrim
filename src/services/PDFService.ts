@@ -512,25 +512,32 @@ export class PDFService {
       margin: [0, 20, 0, 10] as [number, number, number, number],
     });
 
-    if (report.signature) {
-      content.push(        {
-          text: [
-            { text: 'Подпись: ', ...this.getBoldStyle() },
-            report.signature,
-          ],
-          margin: [0, 0, 0, 5] as [number, number, number, number],
-        });
-    }
+    const signatureValue =
+      typeof report.signature === 'string' && report.signature.trim().length > 0
+        ? report.signature
+        : '__________________________';
 
-    if (report.responsible_signature) {
-      content.push(        {
-          text: [
-            { text: 'Подпись ответственного: ', ...this.getBoldStyle() },
-            report.responsible_signature,
-          ],
-          margin: [0, 0, 0, 5] as [number, number, number, number],
-        });
-    }
+    const responsibleSignatureValue =
+      typeof report.responsible_signature === 'string' && report.responsible_signature.trim().length > 0
+        ? report.responsible_signature
+        : '__________________________';
+
+    content.push(
+      {
+        text: [
+          { text: 'Подпись: ', ...this.getBoldStyle() },
+          signatureValue,
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Подпись ответственного: ', ...this.getBoldStyle() },
+          responsibleSignatureValue,
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      }
+    );
 
     const docDefinition: TDocumentDefinitions = {
       content,

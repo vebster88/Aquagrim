@@ -12,7 +12,7 @@ import {
   clearSession,
 } from '../db';
 import { DialogState } from '../types';
-import { getFlowKeyboard } from '../utils/keyboards';
+import { getFlowKeyboard, getMainKeyboard } from '../utils/keyboards';
 import { parseBonusTargets, bonusTargetsToString, formatBonusTargets } from '../utils/bonusTarget';
 
 export class MorningFillFlow {
@@ -115,7 +115,8 @@ export class MorningFillFlow {
       `✅ Утреннее заполнение завершено!\n\n` +
       `Площадка: ${site.name}\n` +
       `Дата: ${today}\n` +
-      `Бонусные планки: ${bonusTargetsFormatted}`
+      `Бонусные планки: ${bonusTargetsFormatted}`,
+      getMainKeyboard()
     );
   }
   

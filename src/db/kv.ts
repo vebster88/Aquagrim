@@ -32,6 +32,73 @@ const PREFIXES = {
   counter: 'counter:',
 };
 
+/**
+ * Нормализует денежные поля отчета.
+ *
+ * Раньше все суммы хранились в копейках, теперь — в рублях.
+ * Старые записи из БД могут приходить в копейках, из‑за чего
+ * в отчетах и PDF появляются «космические» суммы.
+ *
+ * Евристика:
+ * - если максимальное из денежных полей больше 100 000,
+ *   считаем, что это копейки и делим все денежные поля на 100.
+ */
+function normalizeReportMoney(report: DailyReport): DailyReport {
+  // Если отчет уже помечен как мигрированный в рубли, ничего не делаем
+  if (report.migrated_to_rubles) {
+    return report;
+  }
+
+  const amounts: number[] = [];
+
+  amounts.push(report.qr_amount);
+  amounts.push(report.cash_amount);
+  if (typeof report.terminal_amount === 'number') {
+    amounts.push(report.terminal_amount);
+  }
+  amounts.push(report.total_revenue);
+  amounts.push(report.salary);
+  if (typeof report.bonus_penalty === 'number') {
+    amounts.push(report.bonus_penalty);
+  }
+  amounts.push(report.responsible_salary);
+  amounts.push(report.total_daily);
+  amounts.push(report.total_cash);
+  amounts.push(report.total_qr);
+  amounts.push(report.cash_in_envelope);
+
+  const maxAmount = amounts.length > 0 ? Math.max(...amounts) : 0;
+
+  // Если суммы явно слишком большие — считаем, что это копейки
+  if (!Number.isFinite(maxAmount) || maxAmount <= 100_000) {
+    return report;
+  }
+
+  const divisor = 100;
+
+  return {
+    ...report,
+    qr_amount: report.qr_amount / divisor,
+    cash_amount: report.cash_amount / divisor,
+    terminal_amount:
+      typeof report.terminal_amount === 'number'
+        ? report.terminal_amount / divisor
+        : report.terminal_amount,
+    total_revenue: report.total_revenue / divisor,
+    salary: report.salary / divisor,
+    bonus_penalty:
+      typeof report.bonus_penalty === 'number'
+        ? report.bonus_penalty / divisor
+        : report.bonus_penalty,
+    responsible_salary: report.responsible_salary / divisor,
+    total_daily: report.total_daily / divisor,
+    total_cash: report.total_cash / divisor,
+    total_qr: report.total_qr / divisor,
+    cash_in_envelope: report.cash_in_envelope / divisor,
+    migrated_to_rubles: true,
+  };
+}
+
 // Генерация ID
 async function generateId(prefix: string): Promise<string> {
   const key = `${PREFIXES.counter}${prefix}`;
@@ -149,7 +216,11 @@ export async function updateSite(site: Site): Promise<void> {
 
 export async function getReportById(id: string): Promise<DailyReport | null> {
   const data = await kvClient.get(`${PREFIXES.report}${id}`);
-  return data ? (data as DailyReport) : null;
+  if (!data) {
+    return null;
+  }
+  const report = data as DailyReport;
+  return normalizeReportMoney(report);
 }
 
 export async function getReportsBySite(siteId: string, date: string): Promise<DailyReport[]> {
@@ -181,6 +252,7 @@ export async function createReport(report: Omit<DailyReport, 'id' | 'created_at'
     id,
     created_at: now,
     updated_at: now,
+    migrated_to_rubles: true,
   };
   
   await kvClient.set(`${PREFIXES.report}${id}`, newReport);

@@ -561,6 +561,7 @@ export class PDFService {
         fontSize: 12,
       },
       pageSize: 'A4',
+      pageOrientation: 'landscape',
       pageMargins: [50, 50, 50, 50] as [number, number, number, number],
       footer: function (currentPage: number, pageCount: number) {
         return {

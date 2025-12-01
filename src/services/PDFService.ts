@@ -714,6 +714,8 @@ export class PDFService {
       { text: 'Выручка', ...this.getBoldStyle(), alignment: 'right' },
       { text: 'Зарплата', ...this.getBoldStyle(), alignment: 'right' },
       { text: 'Нал в конверте', ...this.getBoldStyle(), alignment: 'right' },
+      { text: 'Подпись', ...this.getBoldStyle(), alignment: 'left' },
+      { text: 'Комментарий', ...this.getBoldStyle(), alignment: 'left' },
     ]);
 
     for (const r of reports) {
@@ -804,14 +806,7 @@ export class PDFService {
     content.push(
       {
         text: [
-          { text: 'Ответственный за объект: ', ...this.getBoldStyle() },
-          '__________________________',
-        ],
-        margin: [0, 0, 0, 20] as [number, number, number, number],
-      },
-      {
-        text: [
-          { text: 'Представитель заказчика: ', ...this.getBoldStyle() },
+          { text: 'Подпись ответственной: ', ...this.getBoldStyle() },
           '__________________________',
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],

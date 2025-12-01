@@ -614,6 +614,272 @@ export class PDFService {
   }
 
   /**
+   * Генерирует сводный PDF по площадке:
+   * 1) Таблица с сотрудниками и их результатами
+   * 2) Сводные итоги по объекту
+   * 3) Раздел с подписями
+   */
+  static async generateSiteSummaryPDF(site: Site, reports: DailyReport[]): Promise<Buffer> {
+    console.log(`Starting site summary PDF generation for site ${site.id} (${site.name}), reports count: ${reports.length}`);
+
+    let printer: PdfPrinter;
+    try {
+      printer = await this.createPrinter();
+      console.log('PDF printer for site summary created successfully');
+    } catch (error) {
+      console.error('Failed to create PDF printer for site summary:', error);
+      throw new Error(`Failed to create PDF printer: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    const formattedDate = this.formatDate(site.date);
+    const createdAtDate = this.formatDate(new Date().toISOString());
+
+    // Сводные показатели по площадке
+    const totals = reports.reduce(
+      (acc, r) => {
+        acc.qr_amount += r.qr_amount;
+        acc.cash_amount += r.cash_amount;
+        acc.terminal_amount += r.terminal_amount || 0;
+        acc.total_revenue += r.total_revenue;
+        acc.salary += r.salary;
+        acc.cash_in_envelope += r.cash_in_envelope;
+        return acc;
+      },
+      {
+        qr_amount: 0,
+        cash_amount: 0,
+        terminal_amount: 0,
+        total_revenue: 0,
+        salary: 0,
+        cash_in_envelope: 0,
+      }
+    );
+
+    const content: any[] = [
+      {
+        text: 'Сводный отчет по площадке',
+        style: 'header',
+        alignment: 'center',
+        margin: [0, 0, 0, 20] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Площадка: ', ...this.getBoldStyle() },
+          site.name,
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Дата: ', ...this.getBoldStyle() },
+          formattedDate,
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Ответственный: ', ...this.getBoldStyle() },
+          site.phone,
+        ],
+        margin: [0, 0, 0, 15] as [number, number, number, number],
+      },
+      {
+        canvas: [
+          {
+            type: 'line',
+            x1: 0,
+            y1: 0,
+            x2: 515,
+            y2: 0,
+            lineWidth: 1,
+          },
+        ],
+        margin: [0, 0, 0, 15] as [number, number, number, number],
+      },
+      {
+        text: 'Результаты по сотрудникам:',
+        style: 'sectionHeader',
+        margin: [0, 0, 0, 10] as [number, number, number, number],
+      },
+    ];
+
+    // Таблица с сотрудниками
+    const tableBody: any[] = [];
+    tableBody.push([
+      { text: 'Сотрудник', ...this.getBoldStyle() },
+      { text: 'QR', ...this.getBoldStyle(), alignment: 'right' },
+      { text: 'Наличные', ...this.getBoldStyle(), alignment: 'right' },
+      { text: 'Терминал', ...this.getBoldStyle(), alignment: 'right' },
+      { text: 'Выручка', ...this.getBoldStyle(), alignment: 'right' },
+      { text: 'Зарплата', ...this.getBoldStyle(), alignment: 'right' },
+      { text: 'Нал в конверте', ...this.getBoldStyle(), alignment: 'right' },
+    ]);
+
+    for (const r of reports) {
+      tableBody.push([
+        `${r.lastname} ${r.firstname}`,
+        { text: CalculationService.formatAmount(r.qr_amount), alignment: 'right' },
+        { text: CalculationService.formatAmount(r.cash_amount), alignment: 'right' },
+        {
+          text: typeof r.terminal_amount === 'number'
+            ? CalculationService.formatAmount(r.terminal_amount)
+            : '-',
+          alignment: 'right',
+        },
+        { text: CalculationService.formatAmount(r.total_revenue), alignment: 'right' },
+        { text: CalculationService.formatAmount(r.salary), alignment: 'right' },
+        { text: CalculationService.formatAmount(r.cash_in_envelope), alignment: 'right' },
+      ]);
+    }
+
+    content.push({
+      table: {
+        headerRows: 1,
+        widths: ['*', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto'],
+        body: tableBody,
+      },
+      layout: 'lightHorizontalLines',
+      margin: [0, 0, 0, 15] as [number, number, number, number],
+    });
+
+    // Сводные итоги по площадке
+    content.push(
+      {
+        text: 'Сводные итоги по площадке:',
+        style: 'sectionHeader',
+        margin: [0, 0, 0, 10] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Общая сумма по QR: ', ...this.getBoldStyle() },
+          CalculationService.formatAmount(totals.qr_amount),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Общая сумма наличных: ', ...this.getBoldStyle() },
+          CalculationService.formatAmount(totals.cash_amount),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Общая сумма по терминалу: ', ...this.getBoldStyle() },
+          CalculationService.formatAmount(totals.terminal_amount),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Общая выручка: ', ...this.getBoldStyle() },
+          CalculationService.formatAmount(totals.total_revenue),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Общая зарплата: ', ...this.getBoldStyle() },
+          CalculationService.formatAmount(totals.salary),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Суммарный нал в конверте: ', ...this.getBoldStyle() },
+          CalculationService.formatAmount(totals.cash_in_envelope),
+        ],
+        margin: [0, 0, 0, 15] as [number, number, number, number],
+      }
+    );
+
+    // Подписи
+    content.push({
+      text: 'Подписи:',
+      style: 'sectionHeader',
+      margin: [0, 20, 0, 10] as [number, number, number, number],
+    });
+
+    content.push(
+      {
+        text: [
+          { text: 'Ответственный за объект: ', ...this.getBoldStyle() },
+          '__________________________',
+        ],
+        margin: [0, 0, 0, 20] as [number, number, number, number],
+      },
+      {
+        text: [
+          { text: 'Представитель заказчика: ', ...this.getBoldStyle() },
+          '__________________________',
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      }
+    );
+
+    const docDefinition: TDocumentDefinitions = {
+      content,
+      styles: {
+        header: {
+          fontSize: 20,
+          ...(PDFService.fontCache && (PDFService.fontCache.DejaVuSans || PDFService.fontCache.Roboto || PDFService.fontCache.Helvetica) ? { bold: true } : {}),
+        },
+        sectionHeader: {
+          fontSize: 16,
+          ...(PDFService.fontCache && (PDFService.fontCache.DejaVuSans || PDFService.fontCache.Roboto || PDFService.fontCache.Helvetica) ? { bold: true } : {}),
+          decoration: 'underline',
+        },
+      },
+      defaultStyle: {
+        font: PDFService.fontCache && PDFService.fontCache.DejaVuSans 
+          ? 'DejaVuSans' 
+          : (PDFService.fontCache && PDFService.fontCache.Roboto
+            ? 'Roboto'
+            : (PDFService.fontCache && PDFService.fontCache.Helvetica ? 'Helvetica' : undefined)),
+        fontSize: 12,
+      },
+      pageSize: 'A4',
+      pageMargins: [50, 50, 50, 50] as [number, number, number, number],
+      footer: function (currentPage: number, pageCount: number) {
+        return {
+          text: `Отчет создан: ${createdAtDate} | Страница ${currentPage} из ${pageCount}`,
+          fontSize: 10,
+          alignment: 'left',
+          margin: [50, 10, 50, 0] as [number, number, number, number],
+        };
+      },
+    };
+
+    console.log('Creating site summary PDF document...');
+    return new Promise((resolve, reject) => {
+      try {
+        const pdfDoc = printer.createPdfKitDocument(docDefinition);
+        const chunks: Buffer[] = [];
+
+        pdfDoc.on('data', (chunk: Buffer) => {
+          chunks.push(chunk);
+        });
+
+        pdfDoc.on('end', () => {
+          const pdfBuffer = Buffer.concat(chunks);
+          console.log(`Site summary PDF generation completed, total chunks: ${chunks.length}, size: ${pdfBuffer.length} bytes`);
+          resolve(pdfBuffer);
+        });
+
+        pdfDoc.on('error', (error: Error) => {
+          console.error('Site summary PDF generation error (from pdfDoc):', error);
+          reject(error);
+        });
+
+        pdfDoc.end();
+      } catch (error) {
+        console.error('Site summary PDF creation error (catch block):', error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
    * Форматирует дату для отображения
    */
   private static formatDate(dateString: string): string {

@@ -120,35 +120,27 @@ export class AdminPanel {
       return;
     }
     
-    // Генерируем PDF для каждого отчета
-    for (const report of reports) {
-      try {
-        const pdfBuffer = await PDFService.generateReportPDF(report, site);
-        
-        await ctx.replyWithDocument(
-          {
-            source: pdfBuffer,
-            filename: `report_${site.name}_${report.date}_${report.lastname}.pdf`,
-          },
-          {
-            caption: `Отчет: ${report.lastname} ${report.firstname} - ${site.name} - ${report.date}`,
-          }
-        );
-        
-        await createLog(userId, 'pdf_generated', null, { report_id: report.id, site_id: siteId });
-      } catch (error) {
-        console.error('Error generating PDF:', error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error('Error details:', {
-          message: errorMessage,
-          stack: error instanceof Error ? error.stack : undefined,
-          reportId: report.id,
-        });
-        await ctx.reply(
-          `❌ Ошибка при генерации PDF для отчета ${report.id}\n` +
-          `Ошибка: ${errorMessage}`
-        );
-      }
+    try {
+      const pdfBuffer = await PDFService.generateSiteSummaryPDF(site, reports);
+      
+      await ctx.replyWithDocument(
+        {
+          source: pdfBuffer,
+          filename: `summary_${site.name}_${site.date}.pdf`,
+        },
+        {
+          caption: `Сводный отчет по площадке: ${site.name} - ${site.date}`,
+        }
+      );
+      
+      await createLog(userId, 'pdf_generated', null, { site_id: siteId, reports_count: reports.length });
+    } catch (error) {
+      console.error('Error generating site summary PDF:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await ctx.reply(
+        `❌ Ошибка при генерации сводного PDF по площадке\n` +
+        `Ошибка: ${errorMessage}`
+      );
     }
   }
   

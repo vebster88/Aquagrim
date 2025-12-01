@@ -722,7 +722,7 @@ export class PDFService {
       const signatureText =
         typeof r.signature === 'string' && r.signature.trim().length > 0
           ? r.signature
-          : '____________________';
+          : '';
 
       tableBody.push([
         `${r.lastname} ${r.firstname}`,

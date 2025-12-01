@@ -719,6 +719,11 @@ export class PDFService {
     ]);
 
     for (const r of reports) {
+      const signatureText =
+        typeof r.signature === 'string' && r.signature.trim().length > 0
+          ? r.signature
+          : '____________________';
+
       tableBody.push([
         `${r.lastname} ${r.firstname}`,
         { text: CalculationService.formatAmount(r.qr_amount), alignment: 'right' },
@@ -732,6 +737,8 @@ export class PDFService {
         { text: CalculationService.formatAmount(r.total_revenue), alignment: 'right' },
         { text: CalculationService.formatAmount(r.salary), alignment: 'right' },
         { text: CalculationService.formatAmount(r.cash_in_envelope), alignment: 'right' },
+        { text: signatureText, alignment: 'left' },
+        { text: r.comment || '', alignment: 'left' },
       ]);
     }
 

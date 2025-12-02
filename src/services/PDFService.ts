@@ -733,16 +733,16 @@ export class PDFService {
     // Таблица с сотрудниками
     const tableBody: any[] = [];
     tableBody.push([
-      { text: 'Сотрудник', ...this.getBoldStyle() },
-      { text: 'QR', ...this.getBoldStyle(), alignment: 'right' },
-      { text: 'Наличные', ...this.getBoldStyle(), alignment: 'right' },
-      { text: 'Терминал', ...this.getBoldStyle(), alignment: 'right' },
-      { text: 'Выручка', ...this.getBoldStyle(), alignment: 'right' },
-      { text: 'Зарплата', ...this.getBoldStyle(), alignment: 'right' },
-      { text: 'Бонусы/штрафы', ...this.getBoldStyle(), alignment: 'right' },
-      { text: 'Нал в конверте', ...this.getBoldStyle(), alignment: 'right' },
-      { text: 'Подпись', ...this.getBoldStyle(), alignment: 'left' },
-      { text: 'Комментарий', ...this.getBoldStyle(), alignment: 'left' },
+      { text: 'Сотрудник', ...this.getBoldStyle(), fontSize: 11 },
+      { text: 'QR', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Наличные', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Терминал', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Выручка', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Зарплата', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Бонусы/штрафы', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Нал в конверте', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Подпись', ...this.getBoldStyle(), alignment: 'left', fontSize: 11 },
+      { text: 'Комментарий', ...this.getBoldStyle(), alignment: 'left', fontSize: 11 },
     ]);
 
     for (const r of reports) {
@@ -771,28 +771,29 @@ export class PDFService {
         : this.formatAmountInteger(0);
 
       tableBody.push([
-        employeeName,
-        { text: this.formatAmountInteger(r.qr_amount), alignment: 'right' },
-        { text: this.formatAmountInteger(r.cash_amount), alignment: 'right' },
+        { text: employeeName, fontSize: 11 },
+        { text: this.formatAmountInteger(r.qr_amount), alignment: 'right', fontSize: 11 },
+        { text: this.formatAmountInteger(r.cash_amount), alignment: 'right', fontSize: 11 },
         {
           text: typeof r.terminal_amount === 'number'
             ? this.formatAmountInteger(r.terminal_amount)
             : '-',
           alignment: 'right',
+          fontSize: 11,
         },
-        { text: this.formatAmountInteger(r.total_revenue), alignment: 'right' },
-        { text: this.formatAmountInteger(r.salary), alignment: 'right' },
-        { text: bonusPenaltyText, alignment: 'right' },
-        { text: this.formatAmountInteger(r.cash_in_envelope), alignment: 'right' },
-        { text: signatureText, alignment: 'left' },
-        { text: r.comment || '', alignment: 'left' },
+        { text: this.formatAmountInteger(r.total_revenue), alignment: 'right', fontSize: 11 },
+        { text: this.formatAmountInteger(r.salary), alignment: 'right', fontSize: 11 },
+        { text: bonusPenaltyText, alignment: 'right', fontSize: 11 },
+        { text: this.formatAmountInteger(r.cash_in_envelope), alignment: 'right', fontSize: 11 },
+        { text: signatureText, alignment: 'left', fontSize: 11 },
+        { text: r.comment || '', alignment: 'left', fontSize: 11 },
       ]);
     }
 
     content.push({
       table: {
         headerRows: 1,
-        widths: ['*', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', '*'],
+        widths: [80, 70, 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', '*'],
         body: tableBody,
       },
       layout: 'lightHorizontalLines',

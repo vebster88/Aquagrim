@@ -414,7 +414,7 @@ export class EveningReportFlow {
           const responsibleNote = isResponsible ? '\n⭐ Ответственный (+1500 ₽ к зарплате)\n' : '';
           
           const summary = 
-            `📋 Проверьте введенные данные:${responsibleNote}\n` +
+            `📋 Проверьте введенные данные:${responsibleNote}\n\n` +
             `🏢 Площадка: ${site.name}\n` +
             `👤 Сотрудник: ${reportData.lastname} ${reportData.firstname}\n` +
             `📱 № QR: ${reportData.qr_number}\n` +

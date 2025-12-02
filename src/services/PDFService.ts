@@ -749,7 +749,7 @@ export class PDFService {
       { text: 'Выручка', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'Зарплата', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'Бонусы/штрафы', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
-      { text: 'Ответственный (ЗП)', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Ответствен-ный (ЗП)', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'Подпись', ...this.getBoldStyle(), alignment: 'left', fontSize: 11 },
       { text: 'Комментарий', ...this.getBoldStyle(), alignment: 'left', fontSize: 11 },
     ]);

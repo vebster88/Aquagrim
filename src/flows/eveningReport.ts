@@ -374,11 +374,7 @@ export class EveningReportFlow {
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     await ctx.reply(
       `✅ Отчет сохранен!${responsibleNote}\n` +
-      `📊 Итоги:\n` +
-      `Выручка: ${CalculationService.formatAmount(calculations.total_revenue)}\n` +
-      `Зарплата: ${CalculationService.formatAmount(calculations.salary)}\n` +
-      `Оборот: ${CalculationService.formatAmount(calculations.total_daily)}\n` +
-      `Нал в конверте: ${CalculationService.formatAmount(cash_in_envelope)}\n\n` +
+      
       `⚠️ Пожалуйста, проверьте соответствие сумм с отчетом.`,
       getMainKeyboard(isAdmin)
     );

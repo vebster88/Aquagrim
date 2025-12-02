@@ -566,7 +566,7 @@ export class PDFService {
           : (PDFService.fontCache && PDFService.fontCache.Roboto
             ? 'Roboto'
             : (PDFService.fontCache && PDFService.fontCache.Helvetica ? 'Helvetica' : undefined)),
-        fontSize: 12,
+        fontSize: 11,
       },
       pageSize: 'A4',
       pageOrientation: 'landscape',
@@ -887,7 +887,7 @@ export class PDFService {
           : (PDFService.fontCache && PDFService.fontCache.Roboto
             ? 'Roboto'
             : (PDFService.fontCache && PDFService.fontCache.Helvetica ? 'Helvetica' : undefined)),
-        fontSize: 12,
+        fontSize: 11,
       },
       pageSize: 'A4',
       pageOrientation: 'landscape',

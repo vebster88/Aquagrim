@@ -21,13 +21,14 @@ import { CalculationService } from '../services/CalculationService';
 import { getFlowKeyboard, getConfirmKeyboard, getMainKeyboard } from '../utils/keyboards';
 import { calculateBonusByTargets } from '../utils/bonusTarget';
 import { AdminPanel } from '../admin/adminPanel';
+import { getMoscowDate } from '../utils/dateTime';
 
 export class EveningReportFlow {
   /**
    * Начинает процесс вечернего отчета
    */
   static async start(ctx: Context, userId: string) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
@@ -95,7 +96,7 @@ export class EveningReportFlow {
    * Обрабатывает выбор площадки
    */
   static async handleSiteSelection(ctx: Context, userId: string, siteId: string) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     
     // Проверяем, есть ли уже отчёты для этой площадки
     const existingReports = await getReportsBySite(siteId, today);
@@ -320,7 +321,7 @@ export class EveningReportFlow {
       return;
     }
     
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     
     // Выполняем расчеты
     const calculations = CalculationService.calculate({

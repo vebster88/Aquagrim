@@ -19,6 +19,7 @@ import { EditContext, DialogState } from '../types';
 import { CalculationService } from '../services/CalculationService';
 import { getFlowKeyboard } from '../utils/keyboards';
 import { AdminPanel } from '../admin/adminPanel';
+import { getMoscowDate } from '../utils/dateTime';
 
 export class EditFlow {
   /**
@@ -41,7 +42,7 @@ export class EditFlow {
   static async handleByLastname(ctx: Context, userId: string) {
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     
     // Получаем площадки пользователя
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
@@ -91,7 +92,7 @@ export class EditFlow {
   static async handleLastnameSelection(ctx: Context, userId: string, lastname: string) {
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     
     // Получаем площадки пользователя
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
@@ -137,7 +138,7 @@ export class EditFlow {
    * Обрабатывает выбор режима "по площадке"
    */
   static async handleBySite(ctx: Context, userId: string) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
@@ -180,7 +181,7 @@ export class EditFlow {
       }
     }
     
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     const reports = await getReportsBySite(siteId, today);
     
     if (reports.length === 0) {

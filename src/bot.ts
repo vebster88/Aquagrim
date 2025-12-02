@@ -13,6 +13,7 @@ import { BonusPenaltyFlow } from './flows/bonusPenaltyFlow';
 import { AdminPanel } from './admin/adminPanel';
 import { getMainKeyboard, getFlowKeyboard, getConfirmKeyboard } from './utils/keyboards';
 import { PDFService } from './services/PDFService';
+import { getMoscowDate } from './utils/dateTime';
 
 // Инициализация бота
 const bot = new Telegraf(config.botToken);
@@ -153,7 +154,7 @@ bot.hears('📊 Сводный отчет', async (ctx) => {
     return;
   }
   
-  const today = new Date().toISOString().split('T')[0];
+  const today = getMoscowDate();
   const sites = await getSitesByDateForUser(today, user.id, false);
   
   if (sites.length === 0) {

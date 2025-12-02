@@ -5,6 +5,7 @@
 import { kv } from '@vercel/kv';
 import { isSuperadmin } from '../config';
 import { User, Session, Site, DailyReport, Log } from '../types';
+import { getMoscowISOString } from '../utils/dateTime';
 
 // Инициализация KV клиента
 let kvClient: any = null;
@@ -134,7 +135,7 @@ export async function createUser(telegramId: number, username?: string, phone?: 
     username,
     phone,
     role: isSuperadmin(telegramId) ? 'superadmin' : 'user',
-    created_at: new Date().toISOString(),
+    created_at: getMoscowISOString(),
   };
   
   await kvClient.set(`${PREFIXES.user}${id}`, user);
@@ -166,7 +167,7 @@ export async function createOrUpdateSession(
     user_id: userId,
     state,
     context: { ...existing?.context, ...context },
-    updated_at: new Date().toISOString(),
+    updated_at: getMoscowISOString(),
   };
   
   await kvClient.set(`${PREFIXES.session}${userId}`, session);
@@ -215,7 +216,7 @@ export async function getSitesByDateForUser(date: string, userId: string, isAdmi
 
 export async function createSite(site: Omit<Site, 'id' | 'created_at' | 'updated_at'>): Promise<Site> {
   const id = await generateId('site');
-  const now = new Date().toISOString();
+  const now = getMoscowISOString();
   
   const newSite: Site = {
     ...site,
@@ -233,7 +234,7 @@ export async function createSite(site: Omit<Site, 'id' | 'created_at' | 'updated
 export async function updateSite(site: Site): Promise<void> {
   const updated = {
     ...site,
-    updated_at: new Date().toISOString(),
+    updated_at: getMoscowISOString(),
   };
   await kvClient.set(`${PREFIXES.site}${site.id}`, updated);
 }
@@ -271,7 +272,7 @@ export async function getReportsByLastname(lastname: string): Promise<DailyRepor
 
 export async function createReport(report: Omit<DailyReport, 'id' | 'created_at' | 'updated_at'>): Promise<DailyReport> {
   const id = await generateId('report');
-  const now = new Date().toISOString();
+  const now = getMoscowISOString();
   
   const newReport: DailyReport = {
     ...report,
@@ -291,7 +292,7 @@ export async function createReport(report: Omit<DailyReport, 'id' | 'created_at'
 export async function updateReport(report: DailyReport): Promise<void> {
   const updated = {
     ...report,
-    updated_at: new Date().toISOString(),
+    updated_at: getMoscowISOString(),
   };
   await kvClient.set(`${PREFIXES.report}${report.id}`, updated);
 }
@@ -311,7 +312,7 @@ export async function createLog(
     action_type: actionType,
     payload_before: payloadBefore,
     payload_after: payloadAfter,
-    timestamp: new Date().toISOString(),
+    timestamp: getMoscowISOString(),
   };
   
   await kvClient.set(`${PREFIXES.log}${id}`, log);

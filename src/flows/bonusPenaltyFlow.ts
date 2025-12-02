@@ -18,13 +18,14 @@ import {
 import { CalculationService } from '../services/CalculationService';
 import { getFlowKeyboard, getMainKeyboard } from '../utils/keyboards';
 import { AdminPanel } from '../admin/adminPanel';
+import { getMoscowDate } from '../utils/dateTime';
 
 export class BonusPenaltyFlow {
   /**
    * Начинает процесс начисления бонуса/штрафа
    */
   static async start(ctx: Context, userId: string) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
@@ -67,7 +68,7 @@ export class BonusPenaltyFlow {
    * Выбирает площадку и показывает список сотрудников
    */
   static async selectSite(ctx: Context, userId: string, siteId: string) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     const reports = await getReportsBySite(siteId, today);
     
     if (reports.length === 0) {

@@ -9,6 +9,7 @@ import { DailyReport, Site } from '../types';
 import { CalculationService } from './CalculationService';
 import { getSiteById } from '../db';
 import { formatBonusTargets } from '../utils/bonusTarget';
+import { getMoscowISOString } from '../utils/dateTime';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -301,7 +302,7 @@ export class PDFService {
 
     // Форматируем дату
     const formattedDate = this.formatDate(report.date);
-    const createdAtDate = this.formatDate(new Date().toISOString());
+    const createdAtDate = this.formatDate(getMoscowISOString());
 
     // Создаем структуру документа
     const content: any[] = [
@@ -641,7 +642,7 @@ export class PDFService {
     }
 
     const formattedDate = this.formatDate(site.date);
-    const createdAtDate = this.formatDate(new Date().toISOString());
+    const createdAtDate = this.formatDate(getMoscowISOString());
 
     // Сводные показатели по площадке
     const totals = reports.reduce(

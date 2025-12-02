@@ -59,7 +59,10 @@ function normalizeReportMoney(report: DailyReport): DailyReport {
   amounts.push(report.total_revenue);
   amounts.push(report.salary);
   if (typeof report.bonus_penalty === 'number') {
-    amounts.push(report.bonus_penalty);
+    amounts.push(Math.abs(report.bonus_penalty)); // Используем абсолютное значение для проверки
+  }
+  if (typeof report.bonus_by_targets === 'number') {
+    amounts.push(report.bonus_by_targets);
   }
   amounts.push(report.responsible_salary);
   amounts.push(report.total_daily);
@@ -90,6 +93,10 @@ function normalizeReportMoney(report: DailyReport): DailyReport {
       typeof report.bonus_penalty === 'number'
         ? report.bonus_penalty / divisor
         : report.bonus_penalty,
+    bonus_by_targets:
+      typeof report.bonus_by_targets === 'number'
+        ? report.bonus_by_targets / divisor
+        : report.bonus_by_targets,
     responsible_salary: report.responsible_salary / divisor,
     total_daily: report.total_daily / divisor,
     total_cash: report.total_cash / divisor,

@@ -200,8 +200,10 @@ export class EditFlow {
     if (newValue !== undefined && newValue.trim() !== '') {
       if (currentField.isAmount) {
         const amount = CalculationService.parseAmount(newValue);
-        if (amount === null) {
-          await ctx.reply('❌ Пожалуйста, введите корректное число', getFlowKeyboard());
+        // Для сумм (не бонусов/штрафов) отрицательные значения недопустимы
+        const isBonusPenaltyField = currentField.key === 'bonus_penalty';
+        if (amount === null || (!isBonusPenaltyField && amount < 0)) {
+          await ctx.reply('❌ Пожалуйста, введите корректное положительное число', getFlowKeyboard());
           return;
         }
         updatedValue = amount;

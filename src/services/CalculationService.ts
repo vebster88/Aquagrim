@@ -70,9 +70,9 @@ export class CalculationService {
     // Убираем пробелы и заменяем запятую на точку
     const cleaned = input.trim().replace(/\s/g, '').replace(',', '.');
     
-    // Проверяем, что это число
+    // Проверяем, что это число (разрешаем отрицательные для штрафов)
     const num = parseFloat(cleaned);
-    if (isNaN(num) || num < 0) {
+    if (isNaN(num) || !Number.isFinite(num)) {
       return null;
     }
     

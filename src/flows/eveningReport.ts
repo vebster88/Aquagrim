@@ -177,8 +177,8 @@ export class EveningReportFlow {
   static async handleQrAmount(ctx: Context, userId: string, input: string) {
     const amount = CalculationService.parseAmount(input);
     
-    if (amount === null) {
-      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 5000)', getFlowKeyboard());
+    if (amount === null || amount < 0) {
+      await ctx.reply('❌ Пожалуйста, введите корректное положительное число (например: 5000)', getFlowKeyboard());
       return;
     }
     
@@ -197,8 +197,8 @@ export class EveningReportFlow {
   static async handleCashAmount(ctx: Context, userId: string, input: string) {
     const amount = CalculationService.parseAmount(input);
     
-    if (amount === null) {
-      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 5000)', getFlowKeyboard());
+    if (amount === null || amount < 0) {
+      await ctx.reply('❌ Пожалуйста, введите корректное положительное число (например: 5000)', getFlowKeyboard());
       return;
     }
     
@@ -222,8 +222,8 @@ export class EveningReportFlow {
     
     if (input) {
       const amount = CalculationService.parseAmount(input);
-      if (amount === null) {
-        await ctx.reply('❌ Пожалуйста, введите корректное число или нажмите "Далее"', getFlowKeyboard());
+      if (amount === null || amount < 0) {
+        await ctx.reply('❌ Пожалуйста, введите корректное положительное число или нажмите "Далее"', getFlowKeyboard());
         return;
       }
       terminalAmount = amount;

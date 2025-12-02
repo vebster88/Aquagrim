@@ -48,6 +48,9 @@ export type DialogState =
   | 'admin_select_site'
   | 'admin_select_date'
   | 'admin_add_admin'
+  | 'bonus_select_site'
+  | 'bonus_select_employee'
+  | 'bonus_input_amount'
   | 'confirm_cancel';
 
 export interface Site {
@@ -80,7 +83,8 @@ export interface DailyReport {
   // Рассчитанные поля
   total_revenue: number; // в рублях
   salary: number; // в рублях (20% от выручки)
-  bonus_penalty?: number; // в рублях, ручное поле
+  bonus_by_targets?: number; // в рублях, бонусы по достижению планок (+500 за каждую)
+  bonus_penalty?: number; // в рублях, ручное поле для дополнительных бонусов/штрафов
   responsible_salary: number; // в рублях
   total_daily: number; // в рублях (оборот)
   total_cash: number; // в рублях
@@ -95,7 +99,7 @@ export interface DailyReport {
   migrated_to_rubles?: boolean;
   /**
    * Флаг, что этот сотрудник является ответственным за площадку.
-   * Для ответственного добавляется надбавка 2000 рублей к зарплате.
+   * Для ответственного добавляется надбавка 1500 рублей к зарплате.
    */
   is_responsible?: boolean;
 }

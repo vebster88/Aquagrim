@@ -18,6 +18,7 @@ import {
 import { DialogState } from '../types';
 import { CalculationService } from '../services/CalculationService';
 import { getFlowKeyboard, getConfirmKeyboard, getMainKeyboard } from '../utils/keyboards';
+import { calculateBonusByTargets } from '../utils/bonusTarget';
 
 export class EveningReportFlow {
   /**
@@ -262,10 +263,14 @@ export class EveningReportFlow {
       bonus_target: site.bonus_target,
     });
     
-    // Если это ответственный, добавляем 2000 рублей к зарплате
+    // Рассчитываем бонусы по планкам
+    const bonusByTargets = calculateBonusByTargets(calculations.total_revenue, site.bonus_target);
+    
+    // Если это ответственный, добавляем 1500 рублей к зарплате
     const isResponsible = reportData.is_responsible === true;
-    const finalSalary = isResponsible ? calculations.salary + 2000 : calculations.salary;
-    const responsibleNote = isResponsible ? '\n⭐ Ответственный (+2000 ₽ к зарплате)\n' : '';
+    const responsibleBonus = isResponsible ? 1500 : 0;
+    const finalSalary = calculations.salary + responsibleBonus;
+    const responsibleNote = isResponsible ? '\n⭐ Ответственный (+1500 ₽ к зарплате)\n' : '';
     
     // Формируем сводку данных для подтверждения
     const summary = 
@@ -314,9 +319,13 @@ export class EveningReportFlow {
       bonus_target: site.bonus_target,
     });
     
-    // Если это ответственный, добавляем 2000 рублей к зарплате
+    // Рассчитываем бонусы по планкам (+500 за каждую достигнутую планку)
+    const bonusByTargets = calculateBonusByTargets(calculations.total_revenue, site.bonus_target);
+    
+    // Если это ответственный, добавляем 1500 рублей к зарплате
     const isResponsible = reportData.is_responsible === true;
-    const finalSalary = isResponsible ? calculations.salary + 2000 : calculations.salary;
+    const responsibleBonus = isResponsible ? 1500 : 0;
+    const finalSalary = calculations.salary + responsibleBonus;
     
     // Создаем отчет (подписи не заполняются, остаются null)
     const report = await createReport({
@@ -332,6 +341,8 @@ export class EveningReportFlow {
       signature: undefined, // Не заполняется
       responsible_signature: undefined, // Не заполняется
       is_responsible: isResponsible,
+      bonus_by_targets: bonusByTargets,
+      bonus_penalty: reportData.bonus_penalty || 0,
       ...calculations,
       salary: finalSalary,
     });
@@ -393,10 +404,14 @@ export class EveningReportFlow {
             bonus_target: site.bonus_target,
           });
           
-          // Если это ответственный, добавляем 2000 рублей к зарплате
+          // Рассчитываем бонусы по планкам
+          const bonusByTargets = calculateBonusByTargets(calculations.total_revenue, site.bonus_target);
+          
+          // Если это ответственный, добавляем 1500 рублей к зарплате
           const isResponsible = reportData.is_responsible === true;
-          const finalSalary = isResponsible ? calculations.salary + 2000 : calculations.salary;
-          const responsibleNote = isResponsible ? '\n⭐ Ответственный (+2000 ₽ к зарплате)\n' : '';
+          const responsibleBonus = isResponsible ? 1500 : 0;
+          const finalSalary = calculations.salary + responsibleBonus;
+          const responsibleNote = isResponsible ? '\n⭐ Ответственный (+1500 ₽ к зарплате)\n' : '';
           
           const summary = 
             `📋 Проверьте введенные данные:${responsibleNote}\n` +

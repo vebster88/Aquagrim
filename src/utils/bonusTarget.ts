@@ -22,9 +22,18 @@ export function parseBonusTargets(input: string): number[] | null {
   const targets: number[] = [];
   
   for (const part of parts) {
-    // Заменяем запятую на точку для десятичных чисел и убираем пробелы
-    const cleaned = part.replace(/\s/g, '').replace(',', '.');
-    const num = parseFloat(cleaned);
+    // Убираем пробелы
+    const cleaned = part.replace(/\s/g, '');
+    
+    // Проверяем, что строка содержит только цифры, точку и знак минус в начале (для отрицательных чисел, хотя они не должны быть)
+    // Разрешаем формат: целое число или число с десятичной частью
+    if (!/^\d+(\.\d+)?$/.test(cleaned)) {
+      return null; // Если содержит недопустимые символы (буквы, спецсимволы), возвращаем null
+    }
+    
+    // Заменяем запятую на точку для десятичных чисел (если пользователь использовал запятую)
+    const normalized = cleaned.replace(',', '.');
+    const num = parseFloat(normalized);
     
     if (isNaN(num) || num < 0) {
       return null; // Если хотя бы одно значение некорректно, возвращаем null
@@ -68,5 +77,34 @@ export function formatBonusTargets(targets: number[] | string): string {
  */
 export function bonusTargetsToString(targets: number[]): string {
   return targets.map(t => t.toString()).join(',');
+}
+
+/**
+ * Рассчитывает бонусы по планкам: +500 рублей за каждую достигнутую планку
+ * @param totalRevenue - общая выручка сотрудника (в рублях)
+ * @param bonusTarget - строка с бонусными планками через запятую (в рублях)
+ * @returns сумма бонусов (в рублях)
+ */
+export function calculateBonusByTargets(totalRevenue: number, bonusTarget: string): number {
+  const targets = parseBonusTargets(bonusTarget);
+  if (!targets || targets.length === 0) {
+    return 0;
+  }
+  
+  // Сортируем планки по возрастанию
+  const sortedTargets = [...targets].sort((a, b) => a - b);
+  
+  // Считаем сколько планок достигнуто
+  let achievedTargets = 0;
+  for (const target of sortedTargets) {
+    if (totalRevenue >= target) {
+      achievedTargets++;
+    } else {
+      break; // Если текущая планка не достигнута, следующие тоже не достигнуты
+    }
+  }
+  
+  // +500 рублей за каждую достигнутую планку
+  return achievedTargets * 500;
 }
 

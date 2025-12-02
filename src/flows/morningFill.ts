@@ -43,8 +43,8 @@ export class MorningFillFlow {
     await ctx.reply(
       'Введите бонусную планку (в рублях).\n' +
       'Можно ввести несколько значений через запятую, например:\n' +
-      '• 1000\n' +
-      '• 1000, 2000, 3000\n',
+      '• 5000\n' +
+      '• 5000, 10000, 20000\n',
       getFlowKeyboard()
     );
   }
@@ -143,6 +143,7 @@ export class MorningFillFlow {
       `✅ Утреннее заполнение завершено!\n\n` +
       `Площадка: ${site.name}\n` +
       `Дата: ${today}\n` +
+      `Ответственная: ${site.responsible_lastname} ${site.responsible_firstname}\n` +
       `Бонусные планки: ${bonusTargetsFormatted}`,
       getMainKeyboard()
     );

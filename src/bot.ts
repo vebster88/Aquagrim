@@ -9,6 +9,7 @@ import { DialogState } from './types';
 import { MorningFillFlow } from './flows/morningFill';
 import { EveningReportFlow } from './flows/eveningReport';
 import { EditFlow } from './flows/editFlow';
+import { BonusPenaltyFlow } from './flows/bonusPenaltyFlow';
 import { AdminPanel } from './admin/adminPanel';
 import { getMainKeyboard, getFlowKeyboard, getConfirmKeyboard } from './utils/keyboards';
 
@@ -65,6 +66,7 @@ bot.command('help', async (ctx) => {
     `🌅 Заполнить площадку (утро) - утреннее заполнение площадки\n` +
     `🌆 Заполнить площадку (вечер) - вечерний отчет по площадке\n` +
     `✏️ Редактировать данные - редактирование существующих отчетов\n` +
+    `💰 Начислить бонус/штраф - начисление бонусов или штрафов сотрудникам\n` +
     `ℹ️ Помощь - показать это сообщение\n` +
     `🔧 Админ-панель - доступ к административным функциям\n\n` +
     `Во время заполнения:\n` +
@@ -90,6 +92,11 @@ bot.hears('✏️ Редактировать данные', async (ctx) => {
   await EditFlow.start(ctx, user.id);
 });
 
+bot.hears('💰 Начислить бонус/штраф', async (ctx) => {
+  const user = (ctx as any).user;
+  await BonusPenaltyFlow.start(ctx, user.id);
+});
+
 bot.hears('ℹ️ Помощь', async (ctx) => {
   // Повторяем команду /help
   await ctx.reply(
@@ -97,6 +104,7 @@ bot.hears('ℹ️ Помощь', async (ctx) => {
     `🌅 Заполнить площадку (утро) - утреннее заполнение площадки\n` +
     `🌆 Заполнить площадку (вечер) - вечерний отчет по площадке\n` +
     `✏️ Редактировать данные - редактирование существующих отчетов\n` +
+    `💰 Начислить бонус/штраф - начисление бонусов или штрафов сотрудникам\n` +
     `ℹ️ Помощь - показать это сообщение\n` +
     `🔧 Админ-панель - доступ к административным функциям\n\n` +
     `Во время заполнения:\n` +
@@ -230,6 +238,20 @@ bot.action(/^select_report_(.+)$/, async (ctx) => {
   await EditFlow.startEditingReport(ctx, user.id, reportId, mode);
 });
 
+// Обработка выбора площадки для начисления бонуса/штрафа
+bot.action(/^bonus_site_(.+)$/, async (ctx) => {
+  const user = (ctx as any).user;
+  const siteId = ctx.match[1];
+  await BonusPenaltyFlow.handleSiteSelection(ctx, user.id, siteId);
+});
+
+// Обработка выбора сотрудника для начисления бонуса/штрафа
+bot.action(/^bonus_employee_(.+)$/, async (ctx) => {
+  const user = (ctx as any).user;
+  const reportId = ctx.match[1];
+  await BonusPenaltyFlow.handleEmployeeSelection(ctx, user.id, reportId);
+});
+
 // Обработка режима редактирования
 bot.action('edit_by_lastname', async (ctx) => {
   const user = (ctx as any).user;
@@ -311,6 +333,10 @@ bot.on('text', async (ctx) => {
     await EditFlow.handleLastnameInput(ctx, user.id, text);
   } else if (session.state === 'edit_field') {
     await EditFlow.handleFieldEdit(ctx, user.id, text);
+  }
+  // Обработка начисления бонуса/штрафа
+  else if (session.state === 'bonus_input_amount') {
+    await BonusPenaltyFlow.handleAmount(ctx, user.id, text);
   }
   // Обработка добавления админа
   else if (session.state === 'admin_add_admin' && session.context.waiting_for_admin_id) {

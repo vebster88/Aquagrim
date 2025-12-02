@@ -17,6 +17,13 @@ export class PDFService {
   private static fontCache: any = null;
 
   /**
+   * Форматирует сумму в рублях как целое число (без знаков после запятой)
+   */
+  private static formatAmountInteger(rubles: number): string {
+    return `${Math.round(rubles)} ₽`;
+  }
+
+  /**
    * Загружает шрифты DejaVu Sans с поддержкой кириллицы
    * Сначала пытается загрузить из локальных файлов, затем из CDN
    */
@@ -686,7 +693,9 @@ export class PDFService {
           {
             text: [
               { text: 'Ответственный: ', ...this.getBoldStyle() },
-              `${site.responsible_lastname || ''} ${site.responsible_firstname || ''}`.trim() || site.phone,
+              `${site.responsible_lastname || ''} ${site.responsible_firstname || ''}`.trim() 
+                ? `${site.responsible_lastname} ${site.responsible_firstname}, ${site.phone}`
+                : site.phone,
             ],
             width: 'auto',
           },
@@ -730,6 +739,7 @@ export class PDFService {
       { text: 'Терминал', ...this.getBoldStyle(), alignment: 'right' },
       { text: 'Выручка', ...this.getBoldStyle(), alignment: 'right' },
       { text: 'Зарплата', ...this.getBoldStyle(), alignment: 'right' },
+      { text: 'Бонусы/штрафы', ...this.getBoldStyle(), alignment: 'right' },
       { text: 'Нал в конверте', ...this.getBoldStyle(), alignment: 'right' },
       { text: 'Подпись', ...this.getBoldStyle(), alignment: 'left' },
       { text: 'Комментарий', ...this.getBoldStyle(), alignment: 'left' },
@@ -743,22 +753,37 @@ export class PDFService {
       
       // Отмечаем ответственного звездочкой
       const employeeName = r.is_responsible 
-        ? `⭐ ${r.lastname} ${r.firstname}`
+        ? `* ${r.lastname} ${r.firstname}`
         : `${r.lastname} ${r.firstname}`;
+
+      // Рассчитываем общие бонусы/штрафы:
+      // бонусы по планкам + премия ответственного + ручные бонусы/штрафы
+      const bonusByTargets = r.bonus_by_targets || 0;
+      const responsibleBonus = r.is_responsible ? 1500 : 0;
+      const manualBonusPenalty = r.bonus_penalty || 0;
+      const totalBonusPenalty = bonusByTargets + responsibleBonus + manualBonusPenalty;
+      
+      // Форматируем с учетом знака (целое число)
+      const bonusPenaltyText = totalBonusPenalty > 0 
+        ? `+${this.formatAmountInteger(totalBonusPenalty)}`
+        : totalBonusPenalty < 0
+        ? `-${this.formatAmountInteger(Math.abs(totalBonusPenalty))}`
+        : this.formatAmountInteger(0);
 
       tableBody.push([
         employeeName,
-        { text: CalculationService.formatAmount(r.qr_amount), alignment: 'right' },
-        { text: CalculationService.formatAmount(r.cash_amount), alignment: 'right' },
+        { text: this.formatAmountInteger(r.qr_amount), alignment: 'right' },
+        { text: this.formatAmountInteger(r.cash_amount), alignment: 'right' },
         {
           text: typeof r.terminal_amount === 'number'
-            ? CalculationService.formatAmount(r.terminal_amount)
+            ? this.formatAmountInteger(r.terminal_amount)
             : '-',
           alignment: 'right',
         },
-        { text: CalculationService.formatAmount(r.total_revenue), alignment: 'right' },
-        { text: CalculationService.formatAmount(r.salary), alignment: 'right' },
-        { text: CalculationService.formatAmount(r.cash_in_envelope), alignment: 'right' },
+        { text: this.formatAmountInteger(r.total_revenue), alignment: 'right' },
+        { text: this.formatAmountInteger(r.salary), alignment: 'right' },
+        { text: bonusPenaltyText, alignment: 'right' },
+        { text: this.formatAmountInteger(r.cash_in_envelope), alignment: 'right' },
         { text: signatureText, alignment: 'left' },
         { text: r.comment || '', alignment: 'left' },
       ]);
@@ -767,7 +792,7 @@ export class PDFService {
     content.push({
       table: {
         headerRows: 1,
-        widths: ['*', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', '*'],
+        widths: ['*', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', '*'],
         body: tableBody,
       },
       layout: 'lightHorizontalLines',

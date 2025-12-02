@@ -86,6 +86,7 @@ export interface DailyReport {
   bonus_by_targets?: number; // в рублях, бонусы по достижению планок (+500 за каждую)
   bonus_penalty?: number; // в рублях, ручное поле для дополнительных бонусов/штрафов
   responsible_salary: number; // в рублях
+  responsible_salary_bonus?: number; // в рублях, ЗП ответственного (начисляется вручную через "Начислить бонус/штраф")
   total_daily: number; // в рублях (оборот)
   total_cash: number; // в рублях
   total_qr: number; // в рублях
@@ -99,7 +100,7 @@ export interface DailyReport {
   migrated_to_rubles?: boolean;
   /**
    * Флаг, что этот сотрудник является ответственным за площадку.
-   * Для ответственного добавляется надбавка 1500 рублей к зарплате.
+   * ЗП ответственного начисляется вручную через "Начислить бонус/штраф".
    */
   is_responsible?: boolean;
 }
@@ -124,7 +125,8 @@ export type LogActionType =
   | 'admin_removed'
   | 'report_viewed'
   | 'pdf_generated'
-  | 'bonus_penalty_added';
+  | 'bonus_penalty_added'
+  | 'responsible_salary_added';
 
 export interface CalculationResult {
   total_revenue: number;

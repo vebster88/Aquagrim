@@ -651,7 +651,10 @@ export class PDFService {
         acc.terminal_amount += r.terminal_amount || 0;
         acc.total_revenue += r.total_revenue;
         acc.salary += r.salary;
-        acc.cash_in_envelope += r.cash_in_envelope;
+        // Суммируем бонусы/штрафы (из столбца PDF: bonus_by_targets + bonus_penalty, без responsibleBonus)
+        const bonusByTargets = r.bonus_by_targets || 0;
+        const manualBonusPenalty = r.bonus_penalty || 0;
+        acc.total_bonuses_penalties += bonusByTargets + manualBonusPenalty;
         return acc;
       },
       {
@@ -660,9 +663,15 @@ export class PDFService {
         terminal_amount: 0,
         total_revenue: 0,
         salary: 0,
-        cash_in_envelope: 0,
+        total_bonuses_penalties: 0,
       }
     );
+
+    // Находим ответственного (на объекте может быть только 1)
+    const responsible = reports.find(r => r.is_responsible);
+    const responsibleSalary = responsible && responsible.responsible_salary_bonus 
+      ? responsible.responsible_salary_bonus 
+      : 0;
 
     const content: any[] = [
       {
@@ -740,7 +749,7 @@ export class PDFService {
       { text: 'Выручка', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'Зарплата', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'Бонусы/штрафы', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
-      { text: 'Нал в конверте', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Ответственный (ЗП)', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'Подпись', ...this.getBoldStyle(), alignment: 'left', fontSize: 11 },
       { text: 'Комментарий', ...this.getBoldStyle(), alignment: 'left', fontSize: 11 },
     ]);
@@ -757,11 +766,10 @@ export class PDFService {
         : `${r.lastname} ${r.firstname}`;
 
       // Рассчитываем общие бонусы/штрафы:
-      // бонусы по планкам + премия ответственного + ручные бонусы/штрафы
+      // бонусы по планкам + ручные бонусы/штрафы (без ЗП ответственного)
       const bonusByTargets = r.bonus_by_targets || 0;
-      const responsibleBonus = r.is_responsible ? 1500 : 0;
       const manualBonusPenalty = r.bonus_penalty || 0;
-      const totalBonusPenalty = bonusByTargets + responsibleBonus + manualBonusPenalty;
+      const totalBonusPenalty = bonusByTargets + manualBonusPenalty;
       
       // Форматируем с учетом знака (целое число)
       const bonusPenaltyText = totalBonusPenalty > 0 
@@ -784,7 +792,13 @@ export class PDFService {
         { text: this.formatAmountInteger(r.total_revenue), alignment: 'right', fontSize: 11 },
         { text: this.formatAmountInteger(r.salary), alignment: 'right', fontSize: 11 },
         { text: bonusPenaltyText, alignment: 'right', fontSize: 11 },
-        { text: this.formatAmountInteger(r.cash_in_envelope), alignment: 'right', fontSize: 11 },
+        { 
+          text: r.is_responsible && r.responsible_salary_bonus 
+            ? this.formatAmountInteger(r.responsible_salary_bonus) 
+            : '-', 
+          alignment: 'right', 
+          fontSize: 11 
+        },
         { text: signatureText, alignment: 'left', fontSize: 11 },
         { text: r.comment || '', alignment: 'left', fontSize: 11 },
       ]);
@@ -844,8 +858,10 @@ export class PDFService {
       },
       {
         text: [
-          { text: 'Суммарный нал в конверте: ', ...this.getBoldStyle() },
-          CalculationService.formatAmount(totals.cash_in_envelope),
+          { text: 'Нал в конверте: ', ...this.getBoldStyle() },
+          CalculationService.formatAmount(
+            totals.cash_amount - totals.total_bonuses_penalties - responsibleSalary
+          ),
         ],
         margin: [0, 0, 0, 15] as [number, number, number, number],
       }

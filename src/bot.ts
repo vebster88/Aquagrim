@@ -252,6 +252,18 @@ bot.action(/^bonus_employee_(.+)$/, async (ctx) => {
   await BonusPenaltyFlow.handleEmployeeSelection(ctx, user.id, reportId);
 });
 
+bot.action(/^bonus_type_penalty_(.+)$/, async (ctx) => {
+  const user = (ctx as any).user;
+  const reportId = ctx.match[1];
+  await BonusPenaltyFlow.handleTypeSelection(ctx, user.id, reportId, 'penalty');
+});
+
+bot.action(/^bonus_type_salary_(.+)$/, async (ctx) => {
+  const user = (ctx as any).user;
+  const reportId = ctx.match[1];
+  await BonusPenaltyFlow.handleTypeSelection(ctx, user.id, reportId, 'salary');
+});
+
 // Обработка режима редактирования
 bot.action('edit_by_lastname', async (ctx) => {
   const user = (ctx as any).user;

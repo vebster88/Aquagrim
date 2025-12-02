@@ -266,11 +266,14 @@ export class EveningReportFlow {
     // Рассчитываем бонусы по планкам
     const bonusByTargets = calculateBonusByTargets(calculations.total_revenue, site.bonus_target);
     
-    // Если это ответственный, добавляем 1500 рублей к зарплате
+    // Если это ответственный, ЗП начисляется вручную через "Начислить бонус/штраф"
     const isResponsible = reportData.is_responsible === true;
-    const responsibleBonus = isResponsible ? 1500 : 0;
-    const finalSalary = calculations.salary + responsibleBonus;
-    const responsibleNote = isResponsible ? '\n⭐ Ответственный (+1500 ₽ к зарплате)\n' : '';
+    const responsibleNote = isResponsible ? '\n⭐ Ответственный (ЗП начисляется вручную)\n' : '';
+    
+    // Рассчитываем все бонусы/штрафы для cash_in_envelope (без ЗП ответственного, она начисляется отдельно)
+    const totalBonusesPenalties = bonusByTargets + (reportData.bonus_penalty || 0);
+    // Нал в конверте = полученный нал - все бонусы/штрафы (ЗП ответственного будет учтена при начислении)
+    const cash_in_envelope = reportData.cash_amount - totalBonusesPenalties;
     
     // Формируем сводку данных для подтверждения
     const summary = 
@@ -284,9 +287,9 @@ export class EveningReportFlow {
       (reportData.comment ? `📝 Комментарий: ${reportData.comment}\n` : '') +
       `\n📊 Расчеты:\n` +
       `💰 Выручка: ${CalculationService.formatAmount(calculations.total_revenue)}\n` +
-      `💼 Зарплата: ${CalculationService.formatAmount(finalSalary)}\n` +
+      `💼 Зарплата: ${CalculationService.formatAmount(calculations.salary)}\n` +
       `📈 Оборот: ${CalculationService.formatAmount(calculations.total_daily)}\n` +
-      `💵 Нал в конверте: ${CalculationService.formatAmount(calculations.cash_in_envelope)}\n\n` +
+      `💵 Нал в конверте: ${CalculationService.formatAmount(cash_in_envelope)}\n\n` +
       `Нажмите "✅ Ок" для сохранения или "⬅️ Назад" для редактирования.`;
     
     await ctx.reply(summary, getConfirmKeyboard());
@@ -322,10 +325,13 @@ export class EveningReportFlow {
     // Рассчитываем бонусы по планкам (+500 за каждую достигнутую планку)
     const bonusByTargets = calculateBonusByTargets(calculations.total_revenue, site.bonus_target);
     
-    // Если это ответственный, добавляем 1500 рублей к зарплате
+    // Если это ответственный, ЗП начисляется вручную через "Начислить бонус/штраф"
     const isResponsible = reportData.is_responsible === true;
-    const responsibleBonus = isResponsible ? 1500 : 0;
-    const finalSalary = calculations.salary + responsibleBonus;
+    
+    // Рассчитываем все бонусы/штрафы для cash_in_envelope (без ЗП ответственного, она начисляется отдельно)
+    const totalBonusesPenalties = bonusByTargets + (reportData.bonus_penalty || 0);
+    // Нал в конверте = полученный нал - все бонусы/штрафы (ЗП ответственного будет учтена при начислении)
+    const cash_in_envelope = reportData.cash_amount - totalBonusesPenalties;
     
     // Создаем отчет (подписи не заполняются, остаются null)
     const report = await createReport({
@@ -344,7 +350,8 @@ export class EveningReportFlow {
       bonus_by_targets: bonusByTargets,
       bonus_penalty: reportData.bonus_penalty || 0,
       ...calculations,
-      salary: finalSalary,
+      salary: calculations.salary, // Без добавления бонуса ответственного
+      cash_in_envelope: cash_in_envelope, // Пересчитываем с учетом всех бонусов
     });
     
     // Обновляем статус площадки
@@ -354,14 +361,14 @@ export class EveningReportFlow {
     await clearSession(userId);
     
     // Показываем краткий итог
-    const responsibleNote = isResponsible ? '\n⭐ Ответственный (+1500 ₽ к зарплате)\n' : '';
+    const responsibleNote = isResponsible ? '\n⭐ Ответственный (ЗП начисляется вручную)\n' : '';
     await ctx.reply(
       `✅ Отчет сохранен!${responsibleNote}\n` +
       `📊 Итоги:\n` +
       `Выручка: ${CalculationService.formatAmount(calculations.total_revenue)}\n` +
-      `Зарплата: ${CalculationService.formatAmount(finalSalary)}\n` +
+      `Зарплата: ${CalculationService.formatAmount(calculations.salary)}\n` +
       `Оборот: ${CalculationService.formatAmount(calculations.total_daily)}\n` +
-      `Нал в конверте: ${CalculationService.formatAmount(calculations.cash_in_envelope)}\n\n` +
+      `Нал в конверте: ${CalculationService.formatAmount(cash_in_envelope)}\n\n` +
       `⚠️ Пожалуйста, проверьте соответствие сумм с отчетом.`,
       getMainKeyboard()
     );
@@ -407,11 +414,14 @@ export class EveningReportFlow {
           // Рассчитываем бонусы по планкам
           const bonusByTargets = calculateBonusByTargets(calculations.total_revenue, site.bonus_target);
           
-          // Если это ответственный, добавляем 1500 рублей к зарплате
+          // Если это ответственный, ЗП начисляется вручную через "Начислить бонус/штраф"
           const isResponsible = reportData.is_responsible === true;
-          const responsibleBonus = isResponsible ? 1500 : 0;
-          const finalSalary = calculations.salary + responsibleBonus;
-          const responsibleNote = isResponsible ? '\n⭐ Ответственный (+1500 ₽ к зарплате)\n' : '';
+          const responsibleNote = isResponsible ? '\n⭐ Ответственный (ЗП начисляется вручную)\n' : '';
+          
+          // Рассчитываем все бонусы/штрафы для cash_in_envelope (без ЗП ответственного, она начисляется отдельно)
+          const totalBonusesPenalties = bonusByTargets + (reportData.bonus_penalty || 0);
+          // Нал в конверте = полученный нал - все бонусы/штрафы
+          const cash_in_envelope = reportData.cash_amount - totalBonusesPenalties;
           
           const summary = 
             `📋 Проверьте введенные данные:${responsibleNote}\n\n` +
@@ -424,9 +434,9 @@ export class EveningReportFlow {
             (reportData.comment ? `📝 Комментарий: ${reportData.comment}\n` : '') +
             `\n📊 Расчеты:\n` +
             `💰 Выручка: ${CalculationService.formatAmount(calculations.total_revenue)}\n` +
-            `💼 Зарплата: ${CalculationService.formatAmount(finalSalary)}\n` +
+            `💼 Зарплата: ${CalculationService.formatAmount(calculations.salary)}\n` +
             `📈 Оборот: ${CalculationService.formatAmount(calculations.total_daily)}\n` +
-            `💵 Нал в конверте: ${CalculationService.formatAmount(calculations.cash_in_envelope)}\n\n` +
+            `💵 Нал в конверте: ${CalculationService.formatAmount(cash_in_envelope)}\n\n` +
             `Нажмите "✅ Ок" для сохранения или "⬅️ Назад" для редактирования.`;
           
           await ctx.reply(summary, getConfirmKeyboard());

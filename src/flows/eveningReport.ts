@@ -168,7 +168,7 @@ export class EveningReportFlow {
     const context = { ...session.context, report: { ...session.context.report, qr_number: qrNumber.trim() } };
     await createOrUpdateSession(userId, 'evening_fill_qr_amount', context);
     
-    await ctx.reply('Введите сумму по QR (в рублях, например: 1000):', getFlowKeyboard());
+    await ctx.reply('Введите сумму по QR (в рублях, например: 5000):', getFlowKeyboard());
   }
   
   /**
@@ -178,7 +178,7 @@ export class EveningReportFlow {
     const amount = CalculationService.parseAmount(input);
     
     if (amount === null) {
-      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 1000)', getFlowKeyboard());
+      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 5000)', getFlowKeyboard());
       return;
     }
     
@@ -198,7 +198,7 @@ export class EveningReportFlow {
     const amount = CalculationService.parseAmount(input);
     
     if (amount === null) {
-      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 1000)', getFlowKeyboard());
+      await ctx.reply('❌ Пожалуйста, введите корректное число (например: 5000)', getFlowKeyboard());
       return;
     }
     
@@ -354,7 +354,7 @@ export class EveningReportFlow {
     await clearSession(userId);
     
     // Показываем краткий итог
-    const responsibleNote = isResponsible ? '\n⭐ Ответственный (+2000 ₽ к зарплате)\n' : '';
+    const responsibleNote = isResponsible ? '\n⭐ Ответственный (+1500 ₽ к зарплате)\n' : '';
     await ctx.reply(
       `✅ Отчет сохранен!${responsibleNote}\n` +
       `📊 Итоги:\n` +

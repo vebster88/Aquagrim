@@ -74,15 +74,41 @@ export class MorningFillFlow {
     if (!session) return;
     
     const context = { ...session.context, site: { ...session.context.site, bonus_target: bonusTargetString } };
-    await createOrUpdateSession(userId, 'morning_fill_phone', context);
+    await createOrUpdateSession(userId, 'morning_fill_responsible_lastname', context);
     
     // Показываем подтверждение введенных значений
     const formatted = targets.map(t => t.toFixed(2)).join(', ');
     await ctx.reply(
       `✅ Бонусные планки сохранены: ${formatted} ₽\n\n` +
-      `Введите номер телефона ответственной:`,
+      `Введите фамилию ответственной:`,
       getFlowKeyboard()
     );
+  }
+  
+  /**
+   * Обрабатывает ввод фамилии ответственной
+   */
+  static async handleResponsibleLastname(ctx: Context, userId: string, lastname: string) {
+    const session = await getSession(userId);
+    if (!session) return;
+    
+    const context = { ...session.context, site: { ...session.context.site, responsible_lastname: lastname.trim() } };
+    await createOrUpdateSession(userId, 'morning_fill_responsible_firstname', context);
+    
+    await ctx.reply('Введите имя ответственной:', getFlowKeyboard());
+  }
+  
+  /**
+   * Обрабатывает ввод имени ответственной
+   */
+  static async handleResponsibleFirstname(ctx: Context, userId: string, firstname: string) {
+    const session = await getSession(userId);
+    if (!session) return;
+    
+    const context = { ...session.context, site: { ...session.context.site, responsible_firstname: firstname.trim() } };
+    await createOrUpdateSession(userId, 'morning_fill_phone', context);
+    
+    await ctx.reply('Введите номер телефона ответственной:', getFlowKeyboard());
   }
   
   /**
@@ -100,6 +126,8 @@ export class MorningFillFlow {
     const site = await createSite({
       name: session.context.site.name,
       responsible_user_id: userId,
+      responsible_lastname: session.context.site.responsible_lastname,
+      responsible_firstname: session.context.site.responsible_firstname,
       bonus_target: session.context.site.bonus_target,
       phone: phone.trim(),
       date: today,
@@ -128,6 +156,12 @@ export class MorningFillFlow {
     if (!session) return;
     
     switch (session.state) {
+      case 'morning_fill_responsible_lastname':
+        await ctx.reply('Пожалуйста, введите фамилию ответственной или используйте кнопку "Отмена"');
+        break;
+      case 'morning_fill_responsible_firstname':
+        await ctx.reply('Пожалуйста, введите имя ответственной или используйте кнопку "Отмена"');
+        break;
       case 'morning_fill_phone':
         // Для телефона можно использовать номер из профиля пользователя
         const user = await getUserByTelegramId(ctx.from?.id || 0);

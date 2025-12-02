@@ -34,12 +34,41 @@ export class EveningReportFlow {
     
     // Если площадка одна, используем её автоматически
     if (sites.length === 1) {
+      const siteId = sites[0].id;
+      
+      // Проверяем, есть ли уже отчёты для этой площадки
+      const existingReports = await getReportsBySite(siteId, today);
+      const isFirstReport = existingReports.length === 0;
+      
+      if (isFirstReport) {
+        // Первый отчёт - автоматически подставляем ФИО ответственной и пропускаем ввод фамилии/имени
+        const site = await getSiteById(siteId);
+        if (site && site.responsible_lastname && site.responsible_firstname) {
+          await createOrUpdateSession(userId, 'evening_fill_qr_number', {
+            flow: 'evening',
+            site_id: siteId,
+            report: {
+              lastname: site.responsible_lastname,
+              firstname: site.responsible_firstname,
+              is_responsible: true,
+            },
+          });
+          await createLog(userId, 'evening_fill_started', null, { site_id: siteId });
+          await ctx.reply(
+            `⭐ Вводятся данные для ${site.responsible_lastname} ${site.responsible_firstname} - ответственная\n\nВведите № QR:`,
+            getFlowKeyboard()
+          );
+          return;
+        }
+      }
+      
+      // Не первый отчёт или нет данных об ответственной - обычный ввод
       await createOrUpdateSession(userId, 'evening_fill_lastname', {
         flow: 'evening',
-        site_id: sites[0].id,
+        site_id: siteId,
         report: {},
       });
-      await createLog(userId, 'evening_fill_started', null, { site_id: sites[0].id });
+      await createLog(userId, 'evening_fill_started', null, { site_id: siteId });
       await ctx.reply('Введите фамилию сотрудника:', getFlowKeyboard());
       return;
     }
@@ -57,25 +86,49 @@ export class EveningReportFlow {
    * Обрабатывает выбор площадки
    */
   static async handleSiteSelection(ctx: Context, userId: string, siteId: string) {
-    await createOrUpdateSession(userId, 'evening_fill_lastname', {
-      flow: 'evening',
-      site_id: siteId,
-      report: {},
-    });
+    const today = new Date().toISOString().split('T')[0];
     
-    await createLog(userId, 'evening_fill_started', null, { site_id: siteId });
+    // Проверяем, есть ли уже отчёты для этой площадки
+    const existingReports = await getReportsBySite(siteId, today);
+    const isFirstReport = existingReports.length === 0;
     
-    // Получаем информацию о площадке для отображения названия
+    // Получаем информацию о площадке
     const site = await getSiteById(siteId);
     const siteName = site?.name || 'неизвестная площадка';
     
-    // Редактируем сообщение с выбором площадки и отправляем новое с запросом фамилии
+    // Редактируем сообщение с выбором площадки
     try {
       await ctx.editMessageText(`Площадка выбрана: ${siteName}`);
     } catch (e) {
       // Если не удалось отредактировать (например, сообщение уже отредактировано), игнорируем
     }
-    await ctx.reply('Введите фамилию сотрудника:', getFlowKeyboard());
+    
+    if (isFirstReport && site && site.responsible_lastname && site.responsible_firstname) {
+      // Первый отчёт - автоматически подставляем ФИО ответственной и пропускаем ввод фамилии/имени
+      await createOrUpdateSession(userId, 'evening_fill_qr_number', {
+        flow: 'evening',
+        site_id: siteId,
+        report: {
+          lastname: site.responsible_lastname,
+          firstname: site.responsible_firstname,
+          is_responsible: true,
+        },
+      });
+      await createLog(userId, 'evening_fill_started', null, { site_id: siteId });
+      await ctx.reply(
+        `⭐ Вводятся данные для ${site.responsible_lastname} ${site.responsible_firstname} - ответственная\n\nВведите № QR:`,
+        getFlowKeyboard()
+      );
+    } else {
+      // Не первый отчёт или нет данных об ответственной - обычный ввод
+      await createOrUpdateSession(userId, 'evening_fill_lastname', {
+        flow: 'evening',
+        site_id: siteId,
+        report: {},
+      });
+      await createLog(userId, 'evening_fill_started', null, { site_id: siteId });
+      await ctx.reply('Введите фамилию сотрудника:', getFlowKeyboard());
+    }
   }
   
   /**
@@ -209,9 +262,14 @@ export class EveningReportFlow {
       bonus_target: site.bonus_target,
     });
     
+    // Если это ответственный, добавляем 2000 рублей к зарплате
+    const isResponsible = reportData.is_responsible === true;
+    const finalSalary = isResponsible ? calculations.salary + 2000 : calculations.salary;
+    const responsibleNote = isResponsible ? '\n⭐ Ответственный (+2000 ₽ к зарплате)\n' : '';
+    
     // Формируем сводку данных для подтверждения
     const summary = 
-      `📋 Проверьте введенные данные:\n\n` +
+      `📋 Проверьте введенные данные:${responsibleNote}\n` +
       `🏢 Площадка: ${site.name}\n` +
       `👤 Сотрудник: ${reportData.lastname} ${reportData.firstname}\n` +
       `📱 № QR: ${reportData.qr_number}\n` +
@@ -221,7 +279,7 @@ export class EveningReportFlow {
       (reportData.comment ? `📝 Комментарий: ${reportData.comment}\n` : '') +
       `\n📊 Расчеты:\n` +
       `💰 Выручка: ${CalculationService.formatAmount(calculations.total_revenue)}\n` +
-      `💼 Зарплата: ${CalculationService.formatAmount(calculations.salary)}\n` +
+      `💼 Зарплата: ${CalculationService.formatAmount(finalSalary)}\n` +
       `📈 Оборот: ${CalculationService.formatAmount(calculations.total_daily)}\n` +
       `💵 Нал в конверте: ${CalculationService.formatAmount(calculations.cash_in_envelope)}\n\n` +
       `Нажмите "✅ Ок" для сохранения или "⬅️ Назад" для редактирования.`;
@@ -256,6 +314,10 @@ export class EveningReportFlow {
       bonus_target: site.bonus_target,
     });
     
+    // Если это ответственный, добавляем 2000 рублей к зарплате
+    const isResponsible = reportData.is_responsible === true;
+    const finalSalary = isResponsible ? calculations.salary + 2000 : calculations.salary;
+    
     // Создаем отчет (подписи не заполняются, остаются null)
     const report = await createReport({
       site_id: siteId,
@@ -269,7 +331,9 @@ export class EveningReportFlow {
       comment: reportData.comment,
       signature: undefined, // Не заполняется
       responsible_signature: undefined, // Не заполняется
+      is_responsible: isResponsible,
       ...calculations,
+      salary: finalSalary,
     });
     
     // Обновляем статус площадки
@@ -279,11 +343,12 @@ export class EveningReportFlow {
     await clearSession(userId);
     
     // Показываем краткий итог
+    const responsibleNote = isResponsible ? '\n⭐ Ответственный (+2000 ₽ к зарплате)\n' : '';
     await ctx.reply(
-      `✅ Отчет сохранен!\n\n` +
+      `✅ Отчет сохранен!${responsibleNote}\n` +
       `📊 Итоги:\n` +
       `Выручка: ${CalculationService.formatAmount(calculations.total_revenue)}\n` +
-      `Зарплата: ${CalculationService.formatAmount(calculations.salary)}\n` +
+      `Зарплата: ${CalculationService.formatAmount(finalSalary)}\n` +
       `Оборот: ${CalculationService.formatAmount(calculations.total_daily)}\n` +
       `Нал в конверте: ${CalculationService.formatAmount(calculations.cash_in_envelope)}\n\n` +
       `⚠️ Пожалуйста, проверьте соответствие сумм с отчетом.`,
@@ -328,8 +393,13 @@ export class EveningReportFlow {
             bonus_target: site.bonus_target,
           });
           
+          // Если это ответственный, добавляем 2000 рублей к зарплате
+          const isResponsible = reportData.is_responsible === true;
+          const finalSalary = isResponsible ? calculations.salary + 2000 : calculations.salary;
+          const responsibleNote = isResponsible ? '\n⭐ Ответственный (+2000 ₽ к зарплате)\n' : '';
+          
           const summary = 
-            `📋 Проверьте введенные данные:\n\n` +
+            `📋 Проверьте введенные данные:${responsibleNote}\n` +
             `🏢 Площадка: ${site.name}\n` +
             `👤 Сотрудник: ${reportData.lastname} ${reportData.firstname}\n` +
             `📱 № QR: ${reportData.qr_number}\n` +
@@ -339,7 +409,7 @@ export class EveningReportFlow {
             (reportData.comment ? `📝 Комментарий: ${reportData.comment}\n` : '') +
             `\n📊 Расчеты:\n` +
             `💰 Выручка: ${CalculationService.formatAmount(calculations.total_revenue)}\n` +
-            `💼 Зарплата: ${CalculationService.formatAmount(calculations.salary)}\n` +
+            `💼 Зарплата: ${CalculationService.formatAmount(finalSalary)}\n` +
             `📈 Оборот: ${CalculationService.formatAmount(calculations.total_daily)}\n` +
             `💵 Нал в конверте: ${CalculationService.formatAmount(calculations.cash_in_envelope)}\n\n` +
             `Нажмите "✅ Ок" для сохранения или "⬅️ Назад" для редактирования.`;

@@ -8,6 +8,7 @@ import { TDocumentDefinitions } from 'pdfmake/interfaces';
 import { DailyReport, Site } from '../types';
 import { CalculationService } from './CalculationService';
 import { getSiteById } from '../db';
+import { formatBonusTargets } from '../utils/bonusTarget';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -664,23 +665,39 @@ export class PDFService {
         margin: [0, 0, 0, 20] as [number, number, number, number],
       },
       {
-        text: [
-          { text: 'Площадка: ', ...this.getBoldStyle() },
-          site.name,
+        columns: [
+          {
+            text: [
+              { text: 'Площадка: ', ...this.getBoldStyle() },
+              site.name,
+            ],
+            width: 'auto',
+          },
+          {
+            text: formattedDate,
+            alignment: 'right',
+            width: '*',
+          },
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
       },
       {
-        text: [
-          { text: 'Дата: ', ...this.getBoldStyle() },
-          formattedDate,
-        ],
-        margin: [0, 0, 0, 5] as [number, number, number, number],
-      },
-      {
-        text: [
-          { text: 'Ответственный: ', ...this.getBoldStyle() },
-          site.phone,
+        columns: [
+          {
+            text: [
+              { text: 'Ответственный: ', ...this.getBoldStyle() },
+              `${site.responsible_lastname || ''} ${site.responsible_firstname || ''}`.trim() || site.phone,
+            ],
+            width: 'auto',
+          },
+          {
+            text: [
+              { text: 'Бонусная планка: ', ...this.getBoldStyle() },
+              formatBonusTargets(site.bonus_target),
+            ],
+            alignment: 'right',
+            width: '*',
+          },
         ],
         margin: [0, 0, 0, 15] as [number, number, number, number],
       },
@@ -723,9 +740,14 @@ export class PDFService {
         typeof r.signature === 'string' && r.signature.trim().length > 0
           ? r.signature
           : '';
+      
+      // Отмечаем ответственного звездочкой
+      const employeeName = r.is_responsible 
+        ? `⭐ ${r.lastname} ${r.firstname}`
+        : `${r.lastname} ${r.firstname}`;
 
       tableBody.push([
-        `${r.lastname} ${r.firstname}`,
+        employeeName,
         { text: CalculationService.formatAmount(r.qr_amount), alignment: 'right' },
         { text: CalculationService.formatAmount(r.cash_amount), alignment: 'right' },
         {

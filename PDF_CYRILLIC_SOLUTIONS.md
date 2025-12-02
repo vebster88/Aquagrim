@@ -121,3 +121,4 @@ const fontBuffer = Buffer.from(fontBase64, 'base64');
 3. Протестируем на реальных данных
 
 
+

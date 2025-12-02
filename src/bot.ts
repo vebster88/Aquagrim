@@ -283,6 +283,10 @@ bot.on('text', async (ctx) => {
     await MorningFillFlow.handleSiteName(ctx, user.id, text);
   } else if (session.state === 'morning_fill_bonus_target') {
     await MorningFillFlow.handleBonusTarget(ctx, user.id, text);
+  } else if (session.state === 'morning_fill_responsible_lastname') {
+    await MorningFillFlow.handleResponsibleLastname(ctx, user.id, text);
+  } else if (session.state === 'morning_fill_responsible_firstname') {
+    await MorningFillFlow.handleResponsibleFirstname(ctx, user.id, text);
   } else if (session.state === 'morning_fill_phone') {
     await MorningFillFlow.handlePhone(ctx, user.id, text);
   }

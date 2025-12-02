@@ -26,6 +26,8 @@ export type DialogState =
   | 'idle'
   | 'morning_fill_site_name'
   | 'morning_fill_bonus_target'
+  | 'morning_fill_responsible_lastname'
+  | 'morning_fill_responsible_firstname'
   | 'morning_fill_phone'
   | 'evening_fill_lastname'
   | 'evening_fill_firstname'
@@ -52,6 +54,8 @@ export interface Site {
   id: string;
   name: string;
   responsible_user_id: string;
+  responsible_lastname: string; // фамилия ответственной
+  responsible_firstname: string; // имя ответственной
   bonus_target: string; // строка с бонусными планками через запятую (в рублях, например: "1000,2000,3000")
   phone: string;
   date: string; // YYYY-MM-DD
@@ -89,6 +93,11 @@ export interface DailyReport {
    * Служебное поле для миграции: true, если отчет уже приведен к рублям.
    */
   migrated_to_rubles?: boolean;
+  /**
+   * Флаг, что этот сотрудник является ответственным за площадку.
+   * Для ответственного добавляется надбавка 2000 рублей к зарплате.
+   */
+  is_responsible?: boolean;
 }
 
 export interface Log {

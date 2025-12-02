@@ -673,6 +673,17 @@ export class PDFService {
       ? responsible.responsible_salary_bonus 
       : 0;
 
+    // Находим сотрудника с лучшей выручкой (если сотрудников > 1)
+    let bestRevenueEmployeeId: string | null = null;
+    const BEST_REVENUE_BONUS = 500;
+    if (reports.length > 1) {
+      const maxRevenue = Math.max(...reports.map(r => r.total_revenue));
+      const bestEmployee = reports.find(r => r.total_revenue === maxRevenue);
+      if (bestEmployee) {
+        bestRevenueEmployeeId = bestEmployee.id;
+      }
+    }
+
     const content: any[] = [
       {
         text: 'Сводный отчет по площадке',
@@ -766,10 +777,11 @@ export class PDFService {
         : `${r.lastname} ${r.firstname}`;
 
       // Рассчитываем общие бонусы/штрафы:
-      // бонусы по планкам + ручные бонусы/штрафы (без ЗП ответственного)
+      // бонусы по планкам + ручные бонусы/штрафы + бонус за лучшую выручку (без ЗП ответственного)
       const bonusByTargets = r.bonus_by_targets || 0;
       const manualBonusPenalty = r.bonus_penalty || 0;
-      const totalBonusPenalty = bonusByTargets + manualBonusPenalty;
+      const bestRevenueBonus = (bestRevenueEmployeeId && r.id === bestRevenueEmployeeId) ? BEST_REVENUE_BONUS : 0;
+      const totalBonusPenalty = bonusByTargets + manualBonusPenalty + bestRevenueBonus;
       
       // Форматируем с учетом знака (целое число)
       const bonusPenaltyText = totalBonusPenalty > 0 
@@ -860,7 +872,22 @@ export class PDFService {
         text: [
           { text: 'Нал в конверте: ', ...this.getBoldStyle() },
           this.formatAmountInteger(
-            totals.cash_amount - totals.total_bonuses_penalties - responsibleSalary
+            (() => {
+              // Суммируем только положительные бонусы/штрафы (отрицательные не вычитаем)
+              let positiveBonuses = 0;
+              for (const r of reports) {
+                const bonusByTargets = r.bonus_by_targets || 0;
+                const manualBonusPenalty = r.bonus_penalty || 0;
+                const bestRevenueBonus = (bestRevenueEmployeeId && r.id === bestRevenueEmployeeId) ? BEST_REVENUE_BONUS : 0;
+                const totalBonusPenalty = bonusByTargets + manualBonusPenalty + bestRevenueBonus;
+                // Вычитаем только положительные бонусы
+                if (totalBonusPenalty > 0) {
+                  positiveBonuses += totalBonusPenalty;
+                }
+              }
+              // Нал в конверте = сумма наличных - только положительные бонусы - ЗП ответственного
+              return totals.cash_amount - positiveBonuses - responsibleSalary;
+            })()
           ),
         ],
         margin: [0, 0, 0, 15] as [number, number, number, number],

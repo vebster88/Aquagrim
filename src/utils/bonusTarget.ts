@@ -66,7 +66,7 @@ export function formatBonusTargets(targets: number[] | string): string {
   }
   
   return targets
-    .map(target => target.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₽')
+    .map(target => Math.round(target).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' ₽')
     .join(', ');
 }
 

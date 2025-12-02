@@ -4,7 +4,7 @@
 
 import { Telegraf, Context, Markup } from 'telegraf';
 import { config, isSuperadmin } from './config';
-import { initKV, getUserByTelegramId, createUser, getSession, clearSession, getUserById, createOrUpdateSession } from './db';
+import { initKV, getUserByTelegramId, createUser, getSession, clearSession, getUserById, createOrUpdateSession, getSitesByDateForUser, getSiteById, getReportsBySite, createLog } from './db';
 import { DialogState } from './types';
 import { MorningFillFlow } from './flows/morningFill';
 import { EveningReportFlow } from './flows/eveningReport';
@@ -12,6 +12,7 @@ import { EditFlow } from './flows/editFlow';
 import { BonusPenaltyFlow } from './flows/bonusPenaltyFlow';
 import { AdminPanel } from './admin/adminPanel';
 import { getMainKeyboard, getFlowKeyboard, getConfirmKeyboard } from './utils/keyboards';
+import { PDFService } from './services/PDFService';
 
 // Инициализация бота
 const bot = new Telegraf(config.botToken);
@@ -45,8 +46,9 @@ bot.use(async (ctx, next) => {
 // Команда /start
 bot.command('start', async (ctx) => {
   const user = (ctx as any).user;
+  const isAdmin = AdminPanel.isAdmin(user);
   
-  if (AdminPanel.isAdmin(user)) {
+  if (isAdmin) {
     // Для админов показываем админ-панель
     await AdminPanel.showMainMenu(ctx, user.id);
   }
@@ -55,25 +57,34 @@ bot.command('start', async (ctx) => {
     `Привет, ${user.username || 'пользователь'}!\n\n` +
     `Я бот для сбора отчетности аквагрима.\n` +
     `Используйте кнопки ниже для навигации.`,
-    getMainKeyboard()
+    getMainKeyboard(isAdmin)
   );
 });
 
 // Команда /help
 bot.command('help', async (ctx) => {
-  await ctx.reply(
-    `📖 Помощь по использованию бота:\n\n` +
+  const user = (ctx as any).user;
+  const isAdmin = AdminPanel.isAdmin(user);
+  
+  let helpText = `📖 Помощь по использованию бота:\n\n` +
     `🌅 Заполнить площадку (утро) - утреннее заполнение площадки\n` +
     `🌆 Заполнить площадку (вечер) - вечерний отчет по площадке\n` +
     `✏️ Редактировать данные - редактирование существующих отчетов\n` +
     `💰 Начислить бонус/штраф - начисление бонусов или штрафов сотрудникам\n` +
-    `ℹ️ Помощь - показать это сообщение\n` +
-    `🔧 Админ-панель - доступ к административным функциям\n\n` +
-    `Во время заполнения:\n` +
+    `ℹ️ Помощь - показать это сообщение\n`;
+  
+  if (isAdmin) {
+    helpText += `🔧 Админ-панель - доступ к административным функциям\n\n`;
+  } else {
+    helpText += `📊 Сводный отчет - получить PDF сводного отчета по вашей площадке\n\n`;
+  }
+  
+  helpText += `Во время заполнения:\n` +
     `⏭️ Далее - пропустить текущий шаг (если поле необязательное)\n` +
     `⬅️ Назад - вернуться на предыдущий шаг\n` +
-    `❌ Отмена - отменить заполнение`
-  );
+    `❌ Отмена - отменить заполнение`;
+  
+  await ctx.reply(helpText);
 });
 
 // Обработка кнопок
@@ -98,20 +109,28 @@ bot.hears('💰 Начислить бонус/штраф', async (ctx) => {
 });
 
 bot.hears('ℹ️ Помощь', async (ctx) => {
-  // Повторяем команду /help
-  await ctx.reply(
-    `📖 Помощь по использованию бота:\n\n` +
+  const user = (ctx as any).user;
+  const isAdmin = AdminPanel.isAdmin(user);
+  
+  let helpText = `📖 Помощь по использованию бота:\n\n` +
     `🌅 Заполнить площадку (утро) - утреннее заполнение площадки\n` +
     `🌆 Заполнить площадку (вечер) - вечерний отчет по площадке\n` +
     `✏️ Редактировать данные - редактирование существующих отчетов\n` +
     `💰 Начислить бонус/штраф - начисление бонусов или штрафов сотрудникам\n` +
-    `ℹ️ Помощь - показать это сообщение\n` +
-    `🔧 Админ-панель - доступ к административным функциям\n\n` +
-    `Во время заполнения:\n` +
+    `ℹ️ Помощь - показать это сообщение\n`;
+  
+  if (isAdmin) {
+    helpText += `🔧 Админ-панель - доступ к административным функциям\n\n`;
+  } else {
+    helpText += `📊 Сводный отчет - получить PDF сводного отчета по вашей площадке\n\n`;
+  }
+  
+  helpText += `Во время заполнения:\n` +
     `⏭️ Далее - пропустить текущий шаг (если поле необязательное)\n` +
     `⬅️ Назад - вернуться на предыдущий шаг\n` +
-    `❌ Отмена - отменить заполнение`
-  );
+    `❌ Отмена - отменить заполнение`;
+  
+  await ctx.reply(helpText);
 });
 
 bot.hears('🔧 Админ-панель', async (ctx) => {
@@ -124,13 +143,97 @@ bot.hears('🔧 Админ-панель', async (ctx) => {
   }
 });
 
+// Обработка кнопки "Сводный отчет" для ответственных
+bot.hears('📊 Сводный отчет', async (ctx) => {
+  const user = (ctx as any).user;
+  
+  // Проверяем, что пользователь не админ
+  if (AdminPanel.isAdmin(user)) {
+    await ctx.reply('❌ Администраторы используют админ-панель для получения PDF');
+    return;
+  }
+  
+  const today = new Date().toISOString().split('T')[0];
+  const sites = await getSitesByDateForUser(today, user.id, false);
+  
+  if (sites.length === 0) {
+    await ctx.reply('❌ На сегодня нет ваших площадок');
+    return;
+  }
+  
+  // Если площадка одна, генерируем PDF сразу
+  if (sites.length === 1) {
+    await generateSummaryPDFForUser(ctx, user.id, sites[0].id);
+    return;
+  }
+  
+  // Если несколько площадок, предлагаем выбрать
+  const keyboard = sites.map(site => [
+    { text: site.name, callback_data: `user_pdf_site_${site.id}` },
+  ]);
+  
+  await ctx.reply('Выберите площадку для генерации сводного отчета:', {
+    reply_markup: {
+      inline_keyboard: keyboard,
+    },
+  });
+});
+
+// Функция для генерации PDF сводного отчета для пользователя
+async function generateSummaryPDFForUser(ctx: Context, userId: string, siteId: string) {
+  const site = await getSiteById(siteId);
+  if (!site) {
+    await ctx.reply('❌ Площадка не найдена');
+    return;
+  }
+  
+  // Проверяем, что пользователь является ответственным за эту площадку
+  const user = await getUserById(userId);
+  if (!user || (!AdminPanel.isAdmin(user) && site.responsible_user_id !== userId)) {
+    await ctx.reply('❌ У вас нет доступа к этой площадке');
+    return;
+  }
+  
+  const reports = await getReportsBySite(siteId, site.date);
+  
+  if (reports.length === 0) {
+    await ctx.reply('❌ Отчеты по этой площадке не найдены');
+    return;
+  }
+  
+  try {
+    const pdfBuffer = await PDFService.generateSiteSummaryPDF(site, reports);
+    
+    await ctx.replyWithDocument(
+      {
+        source: pdfBuffer,
+        filename: `summary_${site.name}_${site.date}.pdf`,
+      },
+      {
+        caption: `Сводный отчет по площадке: ${site.name} - ${site.date}`,
+      }
+    );
+    
+    await createLog(userId, 'pdf_generated', null, { site_id: siteId, reports_count: reports.length });
+  } catch (error) {
+    console.error('Error generating site summary PDF:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await ctx.reply(
+      `❌ Ошибка при генерации сводного PDF по площадке\n` +
+      `Ошибка: ${errorMessage}`
+    );
+  }
+}
+
 // Обработка кнопок навигации
 bot.hears('⏭️ Далее', async (ctx) => {
   const user = (ctx as any).user;
   const session = await getSession(user.id);
   
   if (!session) {
-    await ctx.reply('Нет активного процесса заполнения', getMainKeyboard());
+    const user = (ctx as any).user;
+    const isAdmin = AdminPanel.isAdmin(user);
+    await ctx.reply('Нет активного процесса заполнения', getMainKeyboard(isAdmin));
     return;
   }
   
@@ -157,7 +260,9 @@ bot.hears('✅ Ок', async (ctx) => {
   const session = await getSession(user.id);
   
   if (!session) {
-    await ctx.reply('Нет активного процесса заполнения', getMainKeyboard());
+    const user = (ctx as any).user;
+    const isAdmin = AdminPanel.isAdmin(user);
+    await ctx.reply('Нет активного процесса заполнения', getMainKeyboard(isAdmin));
     return;
   }
   
@@ -173,7 +278,9 @@ bot.hears('⬅️ Назад', async (ctx) => {
   const session = await getSession(user.id);
   
   if (!session) {
-    await ctx.reply('Нет активного процесса заполнения', getMainKeyboard());
+    const user = (ctx as any).user;
+    const isAdmin = AdminPanel.isAdmin(user);
+    await ctx.reply('Нет активного процесса заполнения', getMainKeyboard(isAdmin));
     return;
   }
   
@@ -189,7 +296,9 @@ bot.hears('❌ Отмена', async (ctx) => {
   const session = await getSession(user.id);
   
   if (!session) {
-    await ctx.reply('Нет активного процесса заполнения', getMainKeyboard());
+    const user = (ctx as any).user;
+    const isAdmin = AdminPanel.isAdmin(user);
+    await ctx.reply('Нет активного процесса заполнения', getMainKeyboard(isAdmin));
     return;
   }
   
@@ -270,6 +379,12 @@ bot.action('edit_by_lastname', async (ctx) => {
   await EditFlow.handleByLastname(ctx, user.id);
 });
 
+bot.action(/^edit_lastname_(.+)$/, async (ctx) => {
+  const user = (ctx as any).user;
+  const lastname = ctx.match[1];
+  await EditFlow.handleLastnameSelection(ctx, user.id, lastname);
+});
+
 bot.action('edit_by_site', async (ctx) => {
   const user = (ctx as any).user;
   await EditFlow.handleBySite(ctx, user.id);
@@ -288,6 +403,12 @@ bot.action(/^admin_pdf_site_(.+)$/, async (ctx) => {
   const user = (ctx as any).user;
   const siteId = ctx.match[1];
   await AdminPanel.generatePDF(ctx, siteId, user.id);
+});
+
+bot.action(/^user_pdf_site_(.+)$/, async (ctx) => {
+  const user = (ctx as any).user;
+  const siteId = ctx.match[1];
+  await generateSummaryPDFForUser(ctx, user.id, siteId);
 });
 
 bot.action('admin_add_admin', async (ctx) => {
@@ -341,9 +462,7 @@ bot.on('text', async (ctx) => {
     await EveningReportFlow.handleComment(ctx, user.id, text);
   }
   // Обработка редактирования
-  else if (session.state === 'edit_by_lastname_input') {
-    await EditFlow.handleLastnameInput(ctx, user.id, text);
-  } else if (session.state === 'edit_field') {
+  else if (session.state === 'edit_field') {
     await EditFlow.handleFieldEdit(ctx, user.id, text);
   }
   // Обработка начисления бонуса/штрафа

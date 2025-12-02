@@ -21,27 +21,27 @@ export class CalculationService {
     const { qr_amount, cash_amount, terminal_amount = 0, bonus_penalty = 0 } = input;
     // bonus_target больше не используется в расчетах, но оставлен для обратной совместимости
     
-    // Общая выручка
-    const total_revenue = qr_amount + cash_amount + terminal_amount;
+    // Общая выручка (округление до целых)
+    const total_revenue = Math.round(qr_amount + cash_amount + terminal_amount);
     
-    // Зарплата (20% от выручки)
-    const salary = Math.round((total_revenue * config.salaryPercent) * 100) / 100;
+    // Зарплата (20% от выручки, округление до целых)
+    const salary = Math.round(total_revenue * config.salaryPercent);
     
     // Зарплата ответственного (можно расширить логику)
     const responsible_salary = salary;
     
-    // Общая сумма за день (оборот)
+    // Общая сумма за день (оборот, округление до целых)
     const total_daily = total_revenue;
     
-    // Общая сумма наличных
-    const total_cash = cash_amount;
+    // Общая сумма наличных (округление до целых)
+    const total_cash = Math.round(cash_amount);
     
-    // Общая сумма по QR
-    const total_qr = qr_amount;
+    // Общая сумма по QR (округление до целых)
+    const total_qr = Math.round(qr_amount);
     
-    // Нал в конверте с вычетом бонусов
+    // Нал в конверте с вычетом бонусов (округление до целых)
     // Логика: наличные минус бонусы/штрафы
-    const cash_in_envelope = cash_amount - (bonus_penalty || 0);
+    const cash_in_envelope = Math.round(cash_amount - (bonus_penalty || 0));
     
     return {
       total_revenue,
@@ -56,14 +56,14 @@ export class CalculationService {
   }
   
   /**
-   * Форматирует сумму в рублях в читаемый формат
+   * Форматирует сумму в рублях в читаемый формат (целые числа)
    */
   static formatAmount(rubles: number): string {
-    return `${rubles.toFixed(2)} ₽`;
+    return `${Math.round(rubles)} ₽`;
   }
   
   /**
-   * Парсит введенную сумму в рубли
+   * Парсит введенную сумму в рубли (целые числа)
    * Принимает строку вида "1000.50" или "1000,50" или "1000"
    */
   static parseAmount(input: string): number | null {
@@ -76,8 +76,8 @@ export class CalculationService {
       return null;
     }
     
-    // Возвращаем рубли (округление до 2 знаков после запятой)
-    return Math.round(num * 100) / 100;
+    // Возвращаем рубли (округление до целых чисел)
+    return Math.round(num);
   }
   
   /**

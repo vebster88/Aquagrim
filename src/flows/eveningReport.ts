@@ -5,10 +5,11 @@
 import { Context } from 'telegraf';
 import {
   getUserByTelegramId,
+  getUserById,
   createOrUpdateSession,
   getSession,
   clearSession,
-  getSitesByDate,
+  getSitesByDateForUser,
   getReportsBySite,
   createReport,
   updateSite,
@@ -19,6 +20,7 @@ import { DialogState } from '../types';
 import { CalculationService } from '../services/CalculationService';
 import { getFlowKeyboard, getConfirmKeyboard, getMainKeyboard } from '../utils/keyboards';
 import { calculateBonusByTargets } from '../utils/bonusTarget';
+import { AdminPanel } from '../admin/adminPanel';
 
 export class EveningReportFlow {
   /**
@@ -26,10 +28,16 @@ export class EveningReportFlow {
    */
   static async start(ctx: Context, userId: string) {
     const today = new Date().toISOString().split('T')[0];
-    const sites = await getSitesByDate(today);
+    const user = await getUserById(userId);
+    const isAdmin = user ? AdminPanel.isAdmin(user) : false;
+    const sites = await getSitesByDateForUser(today, userId, isAdmin);
     
     if (sites.length === 0) {
-      await ctx.reply('❌ На сегодня нет заполненных площадок. Сначала заполните утреннюю форму.');
+      if (isAdmin) {
+        await ctx.reply('❌ На сегодня нет заполненных площадок.');
+      } else {
+        await ctx.reply('❌ На сегодня нет ваших площадок. Сначала заполните утреннюю форму.');
+      }
       return;
     }
     
@@ -362,6 +370,8 @@ export class EveningReportFlow {
     
     // Показываем краткий итог
     const responsibleNote = isResponsible ? '\n⭐ Ответственный (ЗП начисляется вручную)\n' : '';
+    const user = await getUserById(userId);
+    const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     await ctx.reply(
       `✅ Отчет сохранен!${responsibleNote}\n` +
       `📊 Итоги:\n` +
@@ -370,7 +380,7 @@ export class EveningReportFlow {
       `Оборот: ${CalculationService.formatAmount(calculations.total_daily)}\n` +
       `Нал в конверте: ${CalculationService.formatAmount(cash_in_envelope)}\n\n` +
       `⚠️ Пожалуйста, проверьте соответствие сумм с отчетом.`,
-      getMainKeyboard()
+      getMainKeyboard(isAdmin)
     );
   }
   

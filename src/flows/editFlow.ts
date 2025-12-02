@@ -7,16 +7,18 @@ import {
   getSession,
   createOrUpdateSession,
   clearSession,
-  getReportsByLastname,
   getReportsBySite,
   getReportById,
+  getUserById,
+  getSiteById,
   updateReport,
   createLog,
-  getSitesByDate,
+  getSitesByDateForUser,
 } from '../db';
 import { EditContext, DialogState } from '../types';
 import { CalculationService } from '../services/CalculationService';
 import { getFlowKeyboard } from '../utils/keyboards';
+import { AdminPanel } from '../admin/adminPanel';
 
 export class EditFlow {
   /**
@@ -37,42 +39,46 @@ export class EditFlow {
    * Обрабатывает выбор режима "по фамилии"
    */
   static async handleByLastname(ctx: Context, userId: string) {
-    await createOrUpdateSession(userId, 'edit_by_lastname_input', {
-      flow: 'edit',
-      editContext: { mode: 'by_lastname' },
-    });
+    const user = await getUserById(userId);
+    const isAdmin = user ? AdminPanel.isAdmin(user) : false;
+    const today = new Date().toISOString().split('T')[0];
     
-    await ctx.editMessageText('Введите фамилию для поиска:');
-    await ctx.reply('Введите фамилию для поиска:', getFlowKeyboard());
-  }
-  
-  /**
-   * Обрабатывает ввод фамилии и поиск отчетов
-   */
-  static async handleLastnameInput(ctx: Context, userId: string, lastname: string) {
-    const reports = await getReportsByLastname(lastname.trim());
+    // Получаем площадки пользователя
+    const sites = await getSitesByDateForUser(today, userId, isAdmin);
     
-    if (reports.length === 0) {
-      await ctx.reply('❌ Отчеты с такой фамилией не найдены');
+    if (sites.length === 0) {
+      if (isAdmin) {
+        await ctx.reply('❌ На сегодня нет площадок');
+      } else {
+        await ctx.reply('❌ На сегодня нет ваших площадок');
+      }
       await clearSession(userId);
       return;
     }
     
-    if (reports.length === 1) {
-      // Если один отчет, сразу начинаем редактирование
-      await this.startEditingReport(ctx, userId, reports[0].id, 'by_lastname');
+    // Собираем все отчеты по площадкам пользователя
+    const allReports: any[] = [];
+    for (const site of sites) {
+      const siteReports = await getReportsBySite(site.id, site.date);
+      allReports.push(...siteReports);
+    }
+    
+    if (allReports.length === 0) {
+      await ctx.reply('❌ На ваших площадках нет отчетов для редактирования');
+      await clearSession(userId);
       return;
     }
     
-    // Если несколько, показываем список для выбора
-    const keyboard = reports.map((report, index) => [
-      {
-        text: `${report.lastname} ${report.firstname} - ${report.date}`,
-        callback_data: `select_report_${report.id}`,
-      },
+    // Получаем уникальные фамилии
+    const uniqueLastnames = [...new Set(allReports.map(r => r.lastname))].sort();
+    
+    // Формируем клавиатуру с фамилиями
+    const keyboard = uniqueLastnames.map(lastname => [
+      { text: lastname, callback_data: `edit_lastname_${lastname}` },
     ]);
     
-    await ctx.reply('Выберите отчет для редактирования:', {
+    await ctx.editMessageText('Выберите фамилию сотрудника:');
+    await ctx.reply('Выберите фамилию сотрудника:', {
       reply_markup: {
         inline_keyboard: keyboard,
       },
@@ -80,14 +86,68 @@ export class EditFlow {
   }
   
   /**
+   * Обрабатывает выбор фамилии для редактирования
+   */
+  static async handleLastnameSelection(ctx: Context, userId: string, lastname: string) {
+    const user = await getUserById(userId);
+    const isAdmin = user ? AdminPanel.isAdmin(user) : false;
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Получаем площадки пользователя
+    const sites = await getSitesByDateForUser(today, userId, isAdmin);
+    
+    // Получаем все отчеты с этой фамилией по площадкам пользователя
+    const allReports: any[] = [];
+    for (const site of sites) {
+      const siteReports = await getReportsBySite(site.id, site.date);
+      const filteredReports = siteReports.filter(r => r.lastname.toLowerCase() === lastname.toLowerCase());
+      allReports.push(...filteredReports);
+    }
+    
+    if (allReports.length === 0) {
+      await ctx.reply('❌ Отчеты с такой фамилией не найдены');
+      await clearSession(userId);
+      return;
+    }
+    
+    if (allReports.length === 1) {
+      // Если один отчет, сразу начинаем редактирование
+      await this.startEditingReport(ctx, userId, allReports[0].id, 'by_lastname');
+      return;
+    }
+    
+    // Если несколько, показываем список для выбора
+    const keyboard = allReports.map((report) => [
+      {
+        text: `${report.lastname} ${report.firstname} - ${report.date}`,
+        callback_data: `select_report_${report.id}`,
+      },
+    ]);
+    
+    await ctx.editMessageText('Выберите отчет для редактирования:');
+    await ctx.reply('Выберите отчет для редактирования:', {
+      reply_markup: {
+        inline_keyboard: keyboard,
+      },
+    });
+  }
+  
+  
+  /**
    * Обрабатывает выбор режима "по площадке"
    */
   static async handleBySite(ctx: Context, userId: string) {
     const today = new Date().toISOString().split('T')[0];
-    const sites = await getSitesByDate(today);
+    const user = await getUserById(userId);
+    const isAdmin = user ? AdminPanel.isAdmin(user) : false;
+    const sites = await getSitesByDateForUser(today, userId, isAdmin);
     
     if (sites.length === 0) {
-      await ctx.reply('❌ На сегодня нет площадок');
+      if (isAdmin) {
+        await ctx.reply('❌ На сегодня нет площадок');
+      } else {
+        await ctx.reply('❌ На сегодня нет ваших площадок');
+      }
       await clearSession(userId);
       return;
     }
@@ -107,6 +167,19 @@ export class EditFlow {
    * Обрабатывает выбор площадки для редактирования
    */
   static async handleSiteSelection(ctx: Context, userId: string, siteId: string) {
+    const user = await getUserById(userId);
+    const isAdmin = user ? AdminPanel.isAdmin(user) : false;
+    
+    // Проверяем доступ: для не-админов разрешаем редактирование только своего объекта
+    if (!isAdmin) {
+      const site = await getSiteById(siteId);
+      if (!site || site.responsible_user_id !== userId) {
+        await ctx.editMessageText('❌ У вас нет доступа к редактированию этой площадки');
+        await clearSession(userId);
+        return;
+      }
+    }
+    
     const today = new Date().toISOString().split('T')[0];
     const reports = await getReportsBySite(siteId, today);
     
@@ -144,6 +217,20 @@ export class EditFlow {
       await ctx.reply('❌ Отчет не найден');
       await clearSession(userId);
       return;
+    }
+    
+    // Проверяем доступ: для не-админов разрешаем редактирование только своего объекта
+    const user = await getUserById(userId);
+    const isAdmin = user ? AdminPanel.isAdmin(user) : false;
+    
+    if (!isAdmin) {
+      // Получаем площадку отчета
+      const site = await getSiteById(report.site_id);
+      if (!site || site.responsible_user_id !== userId) {
+        await ctx.reply('❌ У вас нет доступа к редактированию этого отчета');
+        await clearSession(userId);
+        return;
+      }
     }
     
     const editContext: EditContext = {

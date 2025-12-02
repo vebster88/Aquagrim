@@ -743,10 +743,10 @@ export class PDFService {
     const tableBody: any[] = [];
     tableBody.push([
       { text: 'Сотрудник', ...this.getBoldStyle(), fontSize: 11 },
+      { text: 'Выручка', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'QR', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'Наличные', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'Терминал', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
-      { text: 'Выручка', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'Зарплата', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'Бонусы/штрафы', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'Ответствен-ный (ЗП)', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
@@ -780,6 +780,7 @@ export class PDFService {
 
       tableBody.push([
         { text: employeeName, fontSize: 11 },
+        { text: this.formatAmountInteger(r.total_revenue), alignment: 'right', fontSize: 11 },
         { text: this.formatAmountInteger(r.qr_amount), alignment: 'right', fontSize: 11 },
         { text: this.formatAmountInteger(r.cash_amount), alignment: 'right', fontSize: 11 },
         {
@@ -789,7 +790,6 @@ export class PDFService {
           alignment: 'right',
           fontSize: 11,
         },
-        { text: this.formatAmountInteger(r.total_revenue), alignment: 'right', fontSize: 11 },
         { text: this.formatAmountInteger(r.salary), alignment: 'right', fontSize: 11 },
         { text: bonusPenaltyText, alignment: 'right', fontSize: 11 },
         { 
@@ -807,7 +807,7 @@ export class PDFService {
     content.push({
       table: {
         headerRows: 1,
-        widths: [70, 60, 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', 'auto', '*'],
+        widths: [70, 55, 'auto', 55, 'auto', 'auto', 'auto', 'auto', 'auto', '*'],
         body: tableBody,
       },
       layout: 'lightHorizontalLines',
@@ -824,42 +824,42 @@ export class PDFService {
       {
         text: [
           { text: 'Общая сумма по QR: ', ...this.getBoldStyle() },
-          CalculationService.formatAmount(totals.qr_amount),
+          this.formatAmountInteger(totals.qr_amount),
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
       },
       {
         text: [
           { text: 'Общая сумма наличных: ', ...this.getBoldStyle() },
-          CalculationService.formatAmount(totals.cash_amount),
+          this.formatAmountInteger(totals.cash_amount),
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
       },
       {
         text: [
           { text: 'Общая сумма по терминалу: ', ...this.getBoldStyle() },
-          CalculationService.formatAmount(totals.terminal_amount),
+          this.formatAmountInteger(totals.terminal_amount),
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
       },
       {
         text: [
           { text: 'Общая выручка: ', ...this.getBoldStyle() },
-          CalculationService.formatAmount(totals.total_revenue),
+          this.formatAmountInteger(totals.total_revenue),
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
       },
       {
         text: [
           { text: 'Общая зарплата: ', ...this.getBoldStyle() },
-          CalculationService.formatAmount(totals.salary),
+          this.formatAmountInteger(totals.salary),
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
       },
       {
         text: [
           { text: 'Нал в конверте: ', ...this.getBoldStyle() },
-          CalculationService.formatAmount(
+          this.formatAmountInteger(
             totals.cash_amount - totals.total_bonuses_penalties - responsibleSalary
           ),
         ],

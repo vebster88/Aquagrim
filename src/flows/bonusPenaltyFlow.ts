@@ -7,15 +7,17 @@ import {
   getSession,
   createOrUpdateSession,
   clearSession,
-  getSitesByDate,
+  getSitesByDateForUser,
   getReportsBySite,
   getSiteById,
   getReportById,
+  getUserById,
   updateReport,
   createLog,
 } from '../db';
 import { CalculationService } from '../services/CalculationService';
 import { getFlowKeyboard, getMainKeyboard } from '../utils/keyboards';
+import { AdminPanel } from '../admin/adminPanel';
 
 export class BonusPenaltyFlow {
   /**
@@ -23,10 +25,16 @@ export class BonusPenaltyFlow {
    */
   static async start(ctx: Context, userId: string) {
     const today = new Date().toISOString().split('T')[0];
-    const sites = await getSitesByDate(today);
+    const user = await getUserById(userId);
+    const isAdmin = user ? AdminPanel.isAdmin(user) : false;
+    const sites = await getSitesByDateForUser(today, userId, isAdmin);
     
     if (sites.length === 0) {
-      await ctx.reply('❌ На сегодня нет заполненных площадок.');
+      if (isAdmin) {
+        await ctx.reply('❌ На сегодня нет заполненных площадок.');
+      } else {
+        await ctx.reply('❌ На сегодня нет ваших площадок.');
+      }
       return;
     }
     
@@ -131,7 +139,7 @@ export class BonusPenaltyFlow {
       
       await ctx.reply(
         `Выберите тип начисления для ответственного:\n\n` +
-        `Текущий бонус/штраф: ${report.bonus_penalty ? (report.bonus_penalty > 0 ? '+' : '') + CalculationService.formatAmount(report.bonus_penalty) : '0.00 ₽'}\n` +
+        `Текущий бонус/штраф: ${report.bonus_penalty ? (report.bonus_penalty > 0 ? '+' : '') + CalculationService.formatAmount(report.bonus_penalty) : '0 ₽'}\n` +
         `Текущая ЗП ответственного: ${report.responsible_salary_bonus ? CalculationService.formatAmount(report.responsible_salary_bonus) : 'не начислена'}`,
         {
           reply_markup: {
@@ -192,13 +200,13 @@ export class BonusPenaltyFlow {
     
     if (type === 'penalty') {
       await ctx.reply(
-        `Введите сумму бонуса (положительное число) или штрафа (отрицательное число, например: -500):\n\n` +
+        `Введите сумму бонуса (положительное число в рублях) или штрафа (отрицательное число в рублях, например: -500):\n\n` +
         `Текущий бонус/штраф: ${report.bonus_penalty ? (report.bonus_penalty > 0 ? '+' : '') + CalculationService.formatAmount(report.bonus_penalty) : '0.00 ₽'}`,
         getFlowKeyboard()
       );
     } else {
       await ctx.reply(
-        `Введите сумму ЗП ответственного (положительное число, например: 5000):\n\n` +
+        `Введите сумму ЗП ответственного (в рублях, например: 1500):\n\n` +
         `Текущая ЗП ответственного: ${report.responsible_salary_bonus ? CalculationService.formatAmount(report.responsible_salary_bonus) : 'не начислена'}`,
         getFlowKeyboard()
       );
@@ -271,9 +279,11 @@ export class BonusPenaltyFlow {
       
       await clearSession(userId);
       
+      const user = await getUserById(userId);
+      const isAdmin = user ? AdminPanel.isAdmin(user) : false;
       await ctx.reply(
         `✅ ЗП ответственного ${CalculationService.formatAmount(amount)} начислена сотруднику ${report.lastname} ${report.firstname}!`,
-        getMainKeyboard()
+        getMainKeyboard(isAdmin)
       );
     } else {
       // Обновляем bonus_penalty (добавляем к существующему значению)
@@ -302,6 +312,8 @@ export class BonusPenaltyFlow {
       
       await clearSession(userId);
       
+      const user = await getUserById(userId);
+      const isAdmin = user ? AdminPanel.isAdmin(user) : false;
       const amountText = amount > 0 
         ? `бонус +${CalculationService.formatAmount(amount)}`
         : `штраф ${CalculationService.formatAmount(amount)}`;
@@ -309,7 +321,7 @@ export class BonusPenaltyFlow {
       await ctx.reply(
         `✅ ${amountText} начислен сотруднику ${report.lastname} ${report.firstname}!\n\n` +
         `Общий бонус/штраф: ${newBonusPenalty > 0 ? '+' : ''}${CalculationService.formatAmount(newBonusPenalty)}`,
-        getMainKeyboard()
+        getMainKeyboard(isAdmin)
       );
     }
   }

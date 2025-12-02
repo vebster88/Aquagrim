@@ -13,6 +13,8 @@ import {
 } from '../db';
 import { DialogState } from '../types';
 import { getFlowKeyboard, getMainKeyboard } from '../utils/keyboards';
+import { getUserById } from '../db';
+import { AdminPanel } from '../admin/adminPanel';
 import { parseBonusTargets, bonusTargetsToString, formatBonusTargets } from '../utils/bonusTarget';
 
 export class MorningFillFlow {
@@ -139,13 +141,15 @@ export class MorningFillFlow {
     
     const bonusTargetsFormatted = formatBonusTargets(site.bonus_target);
     
+    const currentUser = await getUserById(userId);
+    const isAdmin = currentUser ? AdminPanel.isAdmin(currentUser) : false;
     await ctx.reply(
       `✅ Утреннее заполнение завершено!\n\n` +
       `Площадка: ${site.name}\n` +
       `Дата: ${today}\n` +
       `Ответственная: ${site.responsible_lastname} ${site.responsible_firstname}\n` +
       `Бонусные планки: ${bonusTargetsFormatted}`,
-      getMainKeyboard()
+      getMainKeyboard(isAdmin)
     );
   }
   

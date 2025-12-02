@@ -194,6 +194,25 @@ export async function getSitesByDate(date: string): Promise<Site[]> {
   return sites.filter(site => site !== null) as Site[];
 }
 
+/**
+ * Получает площадки за дату с фильтрацией по пользователю
+ * @param date - дата в формате YYYY-MM-DD
+ * @param userId - ID пользователя
+ * @param isAdmin - является ли пользователь администратором
+ * @returns массив площадок (для админов - все, для обычных пользователей - только их площадки)
+ */
+export async function getSitesByDateForUser(date: string, userId: string, isAdmin: boolean): Promise<Site[]> {
+  const allSites = await getSitesByDate(date);
+  
+  // Администраторы видят все площадки
+  if (isAdmin) {
+    return allSites;
+  }
+  
+  // Обычные пользователи видят только свои площадки (где они ответственные)
+  return allSites.filter(site => site.responsible_user_id === userId);
+}
+
 export async function createSite(site: Omit<Site, 'id' | 'created_at' | 'updated_at'>): Promise<Site> {
   const id = await generateId('site');
   const now = new Date().toISOString();

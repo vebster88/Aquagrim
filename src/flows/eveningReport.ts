@@ -370,11 +370,10 @@ export class EveningReportFlow {
     await clearSession(userId);
     
     // Показываем краткий итог
-    const responsibleNote = isResponsible ? '\n⭐ Ответственный (ЗП начисляется вручную)\n' : '';
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     await ctx.reply(
-      `✅ Отчет сохранен!${responsibleNote}\n` +
+      `✅ Отчет сохранен!\n` +
       
       `⚠️ Пожалуйста, проверьте соответствие сумм с отчетом.`,
       getMainKeyboard(isAdmin)
@@ -431,8 +430,8 @@ export class EveningReportFlow {
           const cash_in_envelope = reportData.cash_amount - totalBonusesPenalties;
           
           const summary = 
-            `📋 Проверьте введенные данные:${responsibleNote}\n\n` +
-            `🏢 Площадка: ${site.name}\n` +
+            `📋 Проверьте введенные данные:${responsibleNote}\n` +
+            `\n🏢 Площадка: ${site.name}\n` +
             `👤 Сотрудник: ${reportData.lastname} ${reportData.firstname}\n` +
             `📱 № QR: ${reportData.qr_number}\n` +
             `💳 Сумма по QR: ${CalculationService.formatAmount(reportData.qr_amount)}\n` +

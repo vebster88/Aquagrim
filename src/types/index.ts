@@ -50,6 +50,7 @@ export type DialogState =
   | 'admin_add_admin'
   | 'bonus_select_site'
   | 'bonus_select_employee'
+  | 'bonus_select_type'
   | 'bonus_input_amount'
   | 'confirm_cancel';
 

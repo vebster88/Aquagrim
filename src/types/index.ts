@@ -123,7 +123,8 @@ export type LogActionType =
   | 'admin_added'
   | 'admin_removed'
   | 'report_viewed'
-  | 'pdf_generated';
+  | 'pdf_generated'
+  | 'bonus_penalty_added';
 
 export interface CalculationResult {
   total_revenue: number;

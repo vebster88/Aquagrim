@@ -278,10 +278,13 @@ export class EveningReportFlow {
     const isResponsible = reportData.is_responsible === true;
     const responsibleNote = isResponsible ? '\n⭐ Ответственный (ЗП начисляется вручную)\n' : '';
     
-    // Рассчитываем все бонусы/штрафы для cash_in_envelope (без ЗП ответственного, она начисляется отдельно)
-    const totalBonusesPenalties = bonusByTargets + (reportData.bonus_penalty || 0);
-    // Нал в конверте = полученный нал - все бонусы/штрафы (ЗП ответственного будет учтена при начислении)
-    const cash_in_envelope = reportData.cash_amount - totalBonusesPenalties;
+    // Рассчитываем "Нал в конверте" с учетом всех бонусов/штрафов (без ЗП ответственного, она начисляется отдельно)
+    const cash_in_envelope = CalculationService.calculateCashInEnvelope(
+      reportData.cash_amount,
+      bonusByTargets,
+      reportData.bonus_penalty || 0,
+      0 // responsible_salary_bonus = 0, так как начисляется отдельно
+    );
     
     // Формируем сводку данных для подтверждения
     const summary = 
@@ -336,10 +339,13 @@ export class EveningReportFlow {
     // Если это ответственный, ЗП начисляется вручную через "Начислить бонус/штраф"
     const isResponsible = reportData.is_responsible === true;
     
-    // Рассчитываем все бонусы/штрафы для cash_in_envelope (без ЗП ответственного, она начисляется отдельно)
-    const totalBonusesPenalties = bonusByTargets + (reportData.bonus_penalty || 0);
-    // Нал в конверте = полученный нал - все бонусы/штрафы (ЗП ответственного будет учтена при начислении)
-    const cash_in_envelope = reportData.cash_amount - totalBonusesPenalties;
+    // Рассчитываем "Нал в конверте" с учетом всех бонусов/штрафов (без ЗП ответственного, она начисляется отдельно)
+    const cash_in_envelope = CalculationService.calculateCashInEnvelope(
+      reportData.cash_amount,
+      bonusByTargets,
+      reportData.bonus_penalty || 0,
+      0 // responsible_salary_bonus = 0, так как начисляется отдельно
+    );
     
     // Создаем отчет (подписи не заполняются, остаются null)
     const report = await createReport({
@@ -423,10 +429,13 @@ export class EveningReportFlow {
           const isResponsible = reportData.is_responsible === true;
           const responsibleNote = isResponsible ? '\n⭐ Ответственный (ЗП начисляется вручную)\n' : '';
           
-          // Рассчитываем все бонусы/штрафы для cash_in_envelope (без ЗП ответственного, она начисляется отдельно)
-          const totalBonusesPenalties = bonusByTargets + (reportData.bonus_penalty || 0);
-          // Нал в конверте = полученный нал - все бонусы/штрафы
-          const cash_in_envelope = reportData.cash_amount - totalBonusesPenalties;
+          // Рассчитываем "Нал в конверте" с учетом всех бонусов/штрафов (без ЗП ответственного, она начисляется отдельно)
+          const cash_in_envelope = CalculationService.calculateCashInEnvelope(
+            reportData.cash_amount,
+            bonusByTargets,
+            reportData.bonus_penalty || 0,
+            0 // responsible_salary_bonus = 0, так как начисляется отдельно
+          );
           
           const summary = 
             `📋 Проверьте введенные данные:${responsibleNote}\n\n` +

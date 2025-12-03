@@ -39,9 +39,9 @@ export class CalculationService {
     // Общая сумма по QR (округление до целых)
     const total_qr = Math.round(qr_amount);
     
-    // Нал в конверте с вычетом бонусов (округление до целых)
-    // Логика: наличные минус бонусы/штрафы
-    const cash_in_envelope = Math.round(cash_amount - (bonus_penalty || 0));
+    // Нал в конверте НЕ рассчитывается здесь, так как требует bonus_by_targets и responsible_salary_bonus
+    // Используйте calculateCashInEnvelope() для правильного расчета
+    const cash_in_envelope = 0; // Временное значение, будет пересчитано отдельно
     
     return {
       total_revenue,
@@ -53,6 +53,20 @@ export class CalculationService {
       total_qr,
       cash_in_envelope,
     };
+  }
+
+  /**
+   * Рассчитывает "Нал в конверте" с учетом всех бонусов и штрафов
+   * Формула: cash_amount - (bonus_by_targets + bonus_penalty + responsible_salary_bonus)
+   */
+  static calculateCashInEnvelope(
+    cash_amount: number,
+    bonus_by_targets: number = 0,
+    bonus_penalty: number = 0,
+    responsible_salary_bonus: number = 0
+  ): number {
+    const totalBonusesPenalties = bonus_by_targets + bonus_penalty + responsible_salary_bonus;
+    return Math.round(cash_amount - totalBonusesPenalties);
   }
   
   /**

@@ -261,10 +261,12 @@ export class BonusPenaltyFlow {
     if (bonusType === 'salary') {
       // Начисляем ЗП ответственного (заменяем значение, не добавляем)
       // Пересчитываем cash_in_envelope с учетом ЗП ответственного
-      const bonusByTargets = report.bonus_by_targets || 0;
-      const manualBonusPenalty = report.bonus_penalty || 0;
-      const totalBonusesPenalties = bonusByTargets + manualBonusPenalty + amount;
-      const cash_in_envelope = report.cash_amount - totalBonusesPenalties;
+      const cash_in_envelope = CalculationService.calculateCashInEnvelope(
+        report.cash_amount,
+        report.bonus_by_targets || 0,
+        report.bonus_penalty || 0,
+        amount // responsible_salary_bonus
+      );
       
       await updateReport({
         ...report,
@@ -290,12 +292,13 @@ export class BonusPenaltyFlow {
       const currentBonusPenalty = report.bonus_penalty || 0;
       const newBonusPenalty = currentBonusPenalty + amount;
       
-      // Рассчитываем все бонусы/штрафы для пересчета cash_in_envelope
-      const bonusByTargets = report.bonus_by_targets || 0;
-      const responsibleSalaryBonus = report.responsible_salary_bonus || 0;
-      const totalBonusesPenalties = bonusByTargets + newBonusPenalty + responsibleSalaryBonus;
-      // Нал в конверте = полученный нал - все бонусы/штрафы
-      const cash_in_envelope = report.cash_amount - totalBonusesPenalties;
+      // Рассчитываем "Нал в конверте" с учетом всех бонусов/штрафов
+      const cash_in_envelope = CalculationService.calculateCashInEnvelope(
+        report.cash_amount,
+        report.bonus_by_targets || 0,
+        newBonusPenalty,
+        report.responsible_salary_bonus || 0
+      );
       
       // Обновляем отчет
       await updateReport({

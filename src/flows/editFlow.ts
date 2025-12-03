@@ -693,9 +693,18 @@ export class EditFlow {
       bonus_penalty: report.bonus_penalty,
     });
     
+    // Пересчитываем "Нал в конверте" с учетом всех бонусов/штрафов
+    const cash_in_envelope = CalculationService.calculateCashInEnvelope(
+      report.cash_amount,
+      report.bonus_by_targets || 0,
+      report.bonus_penalty || 0,
+      report.responsible_salary_bonus || 0
+    );
+    
     const updatedReport = {
       ...report,
       ...calculations,
+      cash_in_envelope, // Используем пересчитанное значение
     };
     
     await updateReport(updatedReport);

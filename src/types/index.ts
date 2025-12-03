@@ -48,6 +48,7 @@ export type DialogState =
   | 'admin_select_site'
   | 'admin_select_date'
   | 'admin_add_admin'
+  | 'admin_remove_admin'
   | 'bonus_select_site'
   | 'bonus_select_employee'
   | 'bonus_select_type'

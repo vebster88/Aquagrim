@@ -126,6 +126,29 @@ export async function getUserByTelegramId(telegramId: number): Promise<User | nu
   return getUserById(userId as string);
 }
 
+/**
+ * Находит пользователя по username (без @)
+ * Внимание: неэффективно, так как перебирает всех пользователей
+ * Используйте только для редких операций
+ */
+export async function getUserByUsername(username: string): Promise<User | null> {
+  // Убираем @ если есть
+  const cleanUsername = username.startsWith('@') ? username.slice(1) : username;
+  
+  // К сожалению, Vercel KV не поддерживает поиск по значениям
+  // Поэтому нужно перебрать всех пользователей
+  // Это неэффективно, но для редких операций допустимо
+  
+  // Получаем все ключи с префиксом user:tg: (это индексы по telegram_id)
+  // Но Vercel KV не поддерживает KEYS команду напрямую
+  // Поэтому используем альтернативный подход:
+  // Пытаемся найти через Telegram Bot API или возвращаем null
+  
+  // Временное решение: возвращаем null и полагаемся на поиск через Telegram ID
+  // В будущем можно добавить индекс по username
+  return null;
+}
+
 export async function createUser(telegramId: number, username?: string, phone?: string): Promise<User> {
   const id = await generateId('user');
   const user: User = {

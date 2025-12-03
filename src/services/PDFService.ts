@@ -7,7 +7,7 @@ import PdfPrinter from 'pdfmake';
 import { TDocumentDefinitions } from 'pdfmake/interfaces';
 import { DailyReport, Site } from '../types';
 import { CalculationService } from './CalculationService';
-import { getSiteById, updateReport } from '../db';
+import { getSiteById, updateReport, getReportsBySite } from '../db';
 import { formatBonusTargets } from '../utils/bonusTarget';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -625,11 +625,12 @@ export class PDFService {
   /**
    * Начисляет бонус за лучшую выручку (500 рублей) сотруднику с максимальной выручкой
    * Бонус начисляется только если на площадке больше одного сотрудника
+   * @returns true если бонус был начислен, false если нет
    */
-  private static async applyBestRevenueBonus(reports: DailyReport[]): Promise<void> {
+  private static async applyBestRevenueBonus(reports: DailyReport[]): Promise<boolean> {
     // Бонус начисляется только если больше одного сотрудника
     if (reports.length <= 1) {
-      return;
+      return false;
     }
 
     // Находим сотрудника с максимальной выручкой
@@ -644,7 +645,7 @@ export class PDFService {
     }
 
     if (!bestEmployee) {
-      return;
+      return false;
     }
 
     // Проверяем, не был ли уже начислен бонус за лучшую выручку
@@ -654,38 +655,41 @@ export class PDFService {
     if (!hasBestRevenueBonus) {
       // Добавляем 500 рублей к bonus_penalty
       const currentBonus = bestEmployee.bonus_penalty || 0;
-      bestEmployee.bonus_penalty = currentBonus + 500;
+      const newBonusPenalty = currentBonus + 500;
 
       // Добавляем "+ЛВ" к комментарию
-      if (bestEmployee.comment) {
-        bestEmployee.comment = `${bestEmployee.comment} +ЛВ`;
-      } else {
-        bestEmployee.comment = '+ЛВ';
-      }
+      const newComment = bestEmployee.comment 
+        ? `${bestEmployee.comment} +ЛВ`
+        : '+ЛВ';
 
       // Пересчитываем значения с учетом нового бонуса
       const calculations = CalculationService.calculate({
         qr_amount: bestEmployee.qr_amount,
         cash_amount: bestEmployee.cash_amount,
         terminal_amount: bestEmployee.terminal_amount || 0,
-        bonus_penalty: bestEmployee.bonus_penalty,
+        bonus_penalty: newBonusPenalty,
       });
 
       const updatedReport = {
         ...bestEmployee,
+        bonus_penalty: newBonusPenalty,
+        comment: newComment,
         ...calculations,
       };
 
       await updateReport(updatedReport);
       
       // Обновляем объект в массиве reports, чтобы использовать актуальные данные
-      const index = reports.findIndex(r => r.id === bestEmployee.id);
+      const index = reports.findIndex(r => r.id === bestEmployee!.id);
       if (index !== -1) {
         reports[index] = updatedReport;
       }
       
-      console.log(`[PDFService] Applied best revenue bonus (500 ₽) to ${bestEmployee.lastname} ${bestEmployee.firstname} (revenue: ${updatedReport.total_revenue} ₽)`);
+      console.log(`[PDFService] Applied best revenue bonus (500 ₽) to ${bestEmployee.lastname} ${bestEmployee.firstname} (revenue: ${updatedReport.total_revenue} ₽, bonus_penalty: ${updatedReport.bonus_penalty} ₽)`);
+      return true;
     }
+    
+    return false;
   }
 
   /**
@@ -698,10 +702,16 @@ export class PDFService {
     console.log(`Starting site summary PDF generation for site ${site.id} (${site.name}), reports count: ${reports.length}`);
 
     // Начисляем бонус за лучшую выручку перед генерацией PDF
-    await this.applyBestRevenueBonus(reports);
+    const bonusApplied = await this.applyBestRevenueBonus(reports);
     
-    // Обновляем список отчетов после начисления бонуса (на случай, если нужно перечитать из БД)
-    // Но так как мы обновили объект напрямую, можно продолжить с текущим списком
+    // Если бонус был начислен, перечитываем отчеты из БД для гарантии актуальности данных
+    if (bonusApplied) {
+      const updatedReports = await getReportsBySite(site.id, site.date);
+      // Заменяем старые отчеты на обновленные
+      reports.length = 0;
+      reports.push(...updatedReports);
+      console.log(`[PDFService] Reloaded reports from DB after applying best revenue bonus`);
+    }
 
     let printer: PdfPrinter;
     try {
@@ -838,9 +848,9 @@ export class PDFService {
         : `${r.lastname} ${r.firstname}`;
 
       // Рассчитываем общие бонусы/штрафы:
-      // бонусы по планкам + ручные бонусы/штрафы (без ЗП ответственного)
+      // бонусы по планкам + ручные бонусы/штрафы (включая бонус за лучшую выручку +ЛВ)
       const bonusByTargets = r.bonus_by_targets || 0;
-      const manualBonusPenalty = r.bonus_penalty || 0;
+      const manualBonusPenalty = r.bonus_penalty || 0; // Включает бонус за лучшую выручку (500 ₽)
       const totalBonusPenalty = bonusByTargets + manualBonusPenalty;
       
       // Форматируем с учетом знака (целое число)

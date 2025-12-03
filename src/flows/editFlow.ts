@@ -290,129 +290,184 @@ export class EditFlow {
    * Показывает меню выбора параметров для редактирования
    */
   static async showFieldMenu(ctx: Context, userId: string, report: any) {
-    const fields = [
-      { key: 'lastname', label: 'Фамилия', value: report.lastname },
-      { key: 'firstname', label: 'Имя', value: report.firstname },
-      { key: 'qr_number', label: '№ QR', value: report.qr_number },
-      { key: 'qr_amount', label: 'Сумма по QR', value: report.qr_amount, isAmount: true },
-      { key: 'cash_amount', label: 'Сумма наличных', value: report.cash_amount, isAmount: true },
-      { key: 'terminal_amount', label: 'Сумма по терминалу', value: report.terminal_amount, isAmount: true },
-      { key: 'comment', label: 'Комментарий', value: report.comment },
-    ];
-    
-    const keyboard = fields.map(field => {
-      const rawValue = field.value;
-      const hasValue =
-        rawValue !== null &&
-        rawValue !== undefined &&
-        String(rawValue).trim() !== '';
-      
-      let displayValue: string;
-      if (field.isAmount) {
-        displayValue = typeof rawValue === 'number'
-          ? CalculationService.formatAmount(rawValue as number)
-          : 'нет значения';
-      } else {
-        displayValue = hasValue ? String(rawValue) : 'нет значения';
+    try {
+      if (!report || !report.id) {
+        console.error('[EditFlow] showFieldMenu - invalid report:', report);
+        await ctx.reply('❌ Ошибка: отчет не найден');
+        return;
       }
       
-      // Ограничиваем длину значения для кнопки (макс 30 символов)
-      const truncatedValue = displayValue.length > 30 
-        ? displayValue.substring(0, 27) + '...' 
-        : displayValue;
+      console.log('[EditFlow] showFieldMenu - report.id:', report.id);
       
-      return [{
-        text: `${field.label}: ${truncatedValue}`,
-        callback_data: `edit_field_${field.key}__${report.id}`,
-      }];
-    });
-    
-    // Добавляем кнопку "История изменений"
-    keyboard.push([{
-      text: '📝 История изменений',
-      callback_data: `view_logs_${report.id}`,
-    }]);
-    
-    // Добавляем кнопку "Завершить"
-    keyboard.push([{
-      text: '✅ Завершить редактирование',
-      callback_data: `finish_editing_${report.id}`,
-    }]);
-    
-    await ctx.reply('Выберите параметр для редактирования:', {
-      reply_markup: {
-        inline_keyboard: keyboard,
-      } as any,
-    });
+      const fields = [
+        { key: 'lastname', label: 'Фамилия', value: report.lastname },
+        { key: 'firstname', label: 'Имя', value: report.firstname },
+        { key: 'qr_number', label: '№ QR', value: report.qr_number },
+        { key: 'qr_amount', label: 'Сумма по QR', value: report.qr_amount, isAmount: true },
+        { key: 'cash_amount', label: 'Сумма наличных', value: report.cash_amount, isAmount: true },
+        { key: 'terminal_amount', label: 'Сумма по терминалу', value: report.terminal_amount, isAmount: true },
+        { key: 'comment', label: 'Комментарий', value: report.comment },
+      ];
+      
+      const keyboard = fields.map(field => {
+        const rawValue = field.value;
+        const hasValue =
+          rawValue !== null &&
+          rawValue !== undefined &&
+          String(rawValue).trim() !== '';
+        
+        let displayValue: string;
+        if (field.isAmount) {
+          displayValue = typeof rawValue === 'number'
+            ? CalculationService.formatAmount(rawValue as number)
+            : 'нет значения';
+        } else {
+          displayValue = hasValue ? String(rawValue) : 'нет значения';
+        }
+        
+        // Ограничиваем длину значения для кнопки (макс 30 символов)
+        const truncatedValue = displayValue.length > 30 
+          ? displayValue.substring(0, 27) + '...' 
+          : displayValue;
+        
+        const callbackData = `edit_field_${field.key}__${report.id}`;
+        console.log('[EditFlow] showFieldMenu - callback_data:', callbackData);
+        
+        return [{
+          text: `${field.label}: ${truncatedValue}`,
+          callback_data: callbackData,
+        }];
+      });
+      
+      // Добавляем кнопку "История изменений"
+      keyboard.push([{
+        text: '📝 История изменений',
+        callback_data: `view_logs_${report.id}`,
+      }]);
+      
+      // Добавляем кнопку "Завершить"
+      keyboard.push([{
+        text: '✅ Завершить редактирование',
+        callback_data: `finish_editing_${report.id}`,
+      }]);
+      
+      await ctx.reply('Выберите параметр для редактирования:', {
+        reply_markup: {
+          inline_keyboard: keyboard,
+        } as any,
+      });
+    } catch (error) {
+      console.error('[EditFlow] showFieldMenu - error:', error);
+      throw error;
+    }
   }
 
   /**
    * Обрабатывает выбор поля для редактирования
    */
   static async handleFieldSelection(ctx: Context, userId: string, reportId: string, fieldKey: string) {
-    console.log('[EditFlow] handleFieldSelection - fieldKey:', fieldKey, 'reportId:', reportId);
-    
-    const session = await getSession(userId);
-    if (!session || !session.context.originalReport) {
-      console.error('[EditFlow] Session not found for userId:', userId);
-      await ctx.reply('❌ Сессия не найдена');
-      return;
-    }
-    
-    const report = session.context.originalReport;
-    const fields = [
-      { key: 'lastname', label: 'Фамилия', value: report.lastname },
-      { key: 'firstname', label: 'Имя', value: report.firstname },
-      { key: 'qr_number', label: '№ QR', value: report.qr_number },
-      { key: 'qr_amount', label: 'Сумма по QR', value: report.qr_amount, isAmount: true },
-      { key: 'cash_amount', label: 'Сумма наличных', value: report.cash_amount, isAmount: true },
-      { key: 'terminal_amount', label: 'Сумма по терминалу', value: report.terminal_amount, isAmount: true },
-      { key: 'comment', label: 'Комментарий', value: report.comment },
-    ];
-    
-    console.log('[EditFlow] Available fields:', fields.map(f => f.key));
-    console.log('[EditFlow] Looking for field:', fieldKey);
-    
-    const selectedField = fields.find(f => f.key === fieldKey);
-    if (!selectedField) {
-      console.error('[EditFlow] Field not found. fieldKey:', fieldKey, 'Available keys:', fields.map(f => f.key));
-      await ctx.reply('❌ Поле не найдено');
-      return;
-    }
-    
-    // Обновляем контекст редактирования
-    const editContext: EditContext = session.context.editContext;
-    editContext.current_field = fieldKey;
-    
-    await createOrUpdateSession(userId, 'edit_field', {
-      ...session.context,
-      editContext,
-    });
-    
-    // Показываем текущее значение и запрашиваем новое
-    const rawValue = selectedField.value;
-    const hasValue =
-      rawValue !== null &&
-      rawValue !== undefined &&
-      String(rawValue).trim() !== '';
-
-    const displayValue = selectedField.isAmount
-      ? typeof rawValue === 'number'
-        ? CalculationService.formatAmount(rawValue as number)
-        : '<i>Значения нет❗</i>'
-      : hasValue
-      ? String(rawValue)
-      : '<i>Значения нет❗</i>';
-
-    const keyboard = getFlowKeyboard();
-    await ctx.editMessageText(
-      `Текущее значение ${selectedField.label}: ${displayValue}\n` +
-      `Введите новое значение или нажмите "Далее":`,
-      {
-        parse_mode: 'HTML',
-        reply_markup: keyboard.reply_markup as any,
+    try {
+      console.log('[EditFlow] handleFieldSelection - fieldKey:', fieldKey, 'reportId:', reportId, 'userId:', userId);
+      
+      const session = await getSession(userId);
+      if (!session) {
+        console.error('[EditFlow] Session not found for userId:', userId);
+        await ctx.answerCbQuery('❌ Сессия не найдена');
+        await ctx.reply('❌ Сессия не найдена. Пожалуйста, начните редактирование заново.');
+        return;
       }
-    );
+      
+      if (!session.context || !session.context.originalReport) {
+        console.error('[EditFlow] originalReport not found in session. Session context:', session.context);
+        await ctx.answerCbQuery('❌ Отчет не найден в сессии');
+        await ctx.reply('❌ Отчет не найден в сессии. Пожалуйста, начните редактирование заново.');
+        return;
+      }
+      
+      const report = session.context.originalReport;
+      const fields = [
+        { key: 'lastname', label: 'Фамилия', value: report.lastname },
+        { key: 'firstname', label: 'Имя', value: report.firstname },
+        { key: 'qr_number', label: '№ QR', value: report.qr_number },
+        { key: 'qr_amount', label: 'Сумма по QR', value: report.qr_amount, isAmount: true },
+        { key: 'cash_amount', label: 'Сумма наличных', value: report.cash_amount, isAmount: true },
+        { key: 'terminal_amount', label: 'Сумма по терминалу', value: report.terminal_amount, isAmount: true },
+        { key: 'comment', label: 'Комментарий', value: report.comment },
+      ];
+      
+      console.log('[EditFlow] Available fields:', fields.map(f => f.key));
+      console.log('[EditFlow] Looking for field:', fieldKey);
+      
+      const selectedField = fields.find(f => f.key === fieldKey);
+      if (!selectedField) {
+        console.error('[EditFlow] Field not found. fieldKey:', fieldKey, 'Available keys:', fields.map(f => f.key));
+        await ctx.answerCbQuery('❌ Поле не найдено');
+        await ctx.reply('❌ Поле не найдено');
+        return;
+      }
+      
+      // Обновляем контекст редактирования
+      if (!session.context.editContext) {
+        console.error('[EditFlow] editContext not found in session');
+        await ctx.answerCbQuery('❌ Контекст редактирования не найден');
+        await ctx.reply('❌ Контекст редактирования не найден. Пожалуйста, начните редактирование заново.');
+        return;
+      }
+      
+      const editContext: EditContext = session.context.editContext;
+      editContext.current_field = fieldKey;
+      
+      await createOrUpdateSession(userId, 'edit_field', {
+        ...session.context,
+        editContext,
+      });
+      
+      // Показываем текущее значение и запрашиваем новое
+      const rawValue = selectedField.value;
+      const hasValue =
+        rawValue !== null &&
+        rawValue !== undefined &&
+        String(rawValue).trim() !== '';
+
+      const displayValue = selectedField.isAmount
+        ? typeof rawValue === 'number'
+          ? CalculationService.formatAmount(rawValue as number)
+          : '<i>Значения нет❗</i>'
+        : hasValue
+        ? String(rawValue)
+        : '<i>Значения нет❗</i>';
+
+      const keyboard = getFlowKeyboard();
+      
+      // Пытаемся обновить сообщение, если не получается - отправляем новое
+      try {
+        await ctx.editMessageText(
+          `Текущее значение ${selectedField.label}: ${displayValue}\n` +
+          `Введите новое значение или нажмите "Далее":`,
+          {
+            parse_mode: 'HTML',
+            reply_markup: keyboard.reply_markup as any,
+          }
+        );
+        await ctx.answerCbQuery();
+      } catch (editError: any) {
+        // Если не удалось обновить сообщение (например, оно уже изменено), отправляем новое
+        console.warn('[EditFlow] Failed to edit message, sending new one:', editError.message);
+        await ctx.reply(
+          `Текущее значение ${selectedField.label}: ${displayValue}\n` +
+          `Введите новое значение или нажмите "Далее":`,
+          {
+            parse_mode: 'HTML',
+            reply_markup: keyboard.reply_markup as any,
+          }
+        );
+        await ctx.answerCbQuery();
+      }
+    } catch (error) {
+      console.error('[EditFlow] handleFieldSelection - error:', error);
+      await ctx.answerCbQuery('❌ Ошибка при обработке');
+      throw error; // Пробрасываем дальше для глобального обработчика
+    }
   }
   
   /**

@@ -363,17 +363,41 @@ bot.action(/^select_report_(.+)$/, async (ctx) => {
 // Используем двойное подчеркивание __ как разделитель между fieldKey и reportId
 // чтобы правильно обработать случаи, когда и fieldKey (qr_number), и reportId (report_123) содержат подчеркивания
 bot.action(/^edit_field_(.+?)__(.+)$/, async (ctx) => {
-  const user = (ctx as any).user;
-  if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
-  
-  // ctx.match[1] - fieldKey (может содержать подчеркивания, например qr_number)
-  // ctx.match[2] - reportId (может содержать подчеркивания, например report_123)
-  const fieldKey = ctx.match[1];
-  const reportId = ctx.match[2];
-  
-  console.log('[bot] edit_field - callbackData:', ctx.callbackQuery.data);
-  console.log('[bot] edit_field - fieldKey:', fieldKey, 'reportId:', reportId);
-  await EditFlow.handleFieldSelection(ctx, user.id, reportId, fieldKey);
+  try {
+    const user = (ctx as any).user;
+    if (!user) {
+      console.error('[bot] edit_field - user not found');
+      await ctx.answerCbQuery('❌ Пользователь не найден');
+      return;
+    }
+    
+    if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) {
+      console.error('[bot] edit_field - callbackQuery or data not found');
+      await ctx.answerCbQuery('❌ Ошибка обработки запроса');
+      return;
+    }
+    
+    // Проверяем, что ctx.match существует и содержит нужные группы
+    if (!ctx.match || !ctx.match[1] || !ctx.match[2]) {
+      console.error('[bot] edit_field - invalid match:', ctx.match, 'callbackData:', ctx.callbackQuery.data);
+      await ctx.answerCbQuery('❌ Ошибка парсинга данных');
+      return;
+    }
+    
+    // ctx.match[1] - fieldKey (может содержать подчеркивания, например qr_number)
+    // ctx.match[2] - reportId (может содержать подчеркивания, например report_123)
+    const fieldKey = ctx.match[1];
+    const reportId = ctx.match[2];
+    
+    console.log('[bot] edit_field - callbackData:', ctx.callbackQuery.data);
+    console.log('[bot] edit_field - fieldKey:', fieldKey, 'reportId:', reportId);
+    
+    await EditFlow.handleFieldSelection(ctx, user.id, reportId, fieldKey);
+  } catch (error) {
+    console.error('[bot] edit_field - error:', error);
+    await ctx.answerCbQuery('❌ Ошибка при обработке запроса');
+    throw error; // Пробрасываем дальше для глобального обработчика
+  }
 });
 
 // Обработка завершения редактирования
@@ -566,7 +590,27 @@ bot.on('text', async (ctx) => {
 // Обработка ошибок
 bot.catch((err, ctx) => {
   console.error('Error in bot:', err);
-  ctx.reply('Произошла ошибка. Попробуйте еще раз или обратитесь к администратору.');
+  console.error('Error stack:', err instanceof Error ? err.stack : 'No stack trace');
+  console.error('Context:', {
+    updateType: ctx.updateType,
+    callbackQuery: ctx.callbackQuery ? {
+      data: 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : 'no data',
+      id: ctx.callbackQuery.id,
+    } : 'no callbackQuery',
+    message: ctx.message ? {
+      text: 'text' in ctx.message ? ctx.message.text : 'no text',
+    } : 'no message',
+  });
+  
+  // Пытаемся ответить пользователю
+  try {
+    if (ctx.callbackQuery) {
+      ctx.answerCbQuery('❌ Произошла ошибка').catch(() => {});
+    }
+    ctx.reply('Произошла ошибка. Попробуйте еще раз или обратитесь к администратору.').catch(() => {});
+  } catch (replyError) {
+    console.error('Failed to send error message:', replyError);
+  }
 });
 
 export { bot };

@@ -381,8 +381,8 @@ bot.action('edit_by_lastname', async (ctx) => {
 
 bot.action(/^edit_lastname_(.+)$/, async (ctx) => {
   const user = (ctx as any).user;
-  const lastname = ctx.match[1];
-  await EditFlow.handleLastnameSelection(ctx, user.id, lastname);
+  const fullName = ctx.match[1]; // Теперь передаем полное имя (может быть с подчеркиваниями)
+  await EditFlow.handleLastnameSelection(ctx, user.id, fullName);
 });
 
 bot.action('edit_by_site', async (ctx) => {

@@ -23,6 +23,14 @@ import { getMoscowDate } from '../utils/dateTime';
 
 export class EditFlow {
   /**
+   * Форматирует дату из YYYY-MM-DD в DD.MM.YYYY
+   */
+  private static formatDateShort(dateString: string): string {
+    const [year, month, day] = dateString.split('-');
+    return `${day}.${month}.${year}`;
+  }
+
+  /**
    * Начинает процесс редактирования
    */
   static async start(ctx: Context, userId: string) {
@@ -70,13 +78,15 @@ export class EditFlow {
       return;
     }
     
-    // Получаем уникальные фамилии
-    const uniqueLastnames = [...new Set(allReports.map(r => r.lastname))].sort();
+    // Получаем уникальные сочетания фамилия+имя для отсечения однофамильцев
+    const uniqueNames = [...new Set(allReports.map(r => `${r.lastname} ${r.firstname}`))].sort();
     
-    // Формируем клавиатуру с фамилиями
-    const keyboard = uniqueLastnames.map(lastname => [
-      { text: lastname, callback_data: `edit_lastname_${lastname}` },
-    ]);
+    // Формируем клавиатуру с фамилией и именем
+    // Используем подчеркивание вместо пробела в callback_data для передачи полного имени
+    const keyboard = uniqueNames.map(fullName => {
+      const callbackData = `edit_lastname_${fullName.replace(/\s+/g, '_')}`;
+      return [{ text: fullName, callback_data: callbackData }];
+    });
     
     await ctx.reply('Выберите фамилию сотрудника:', {
       reply_markup: {
@@ -87,20 +97,28 @@ export class EditFlow {
   
   /**
    * Обрабатывает выбор фамилии для редактирования
+   * @param fullName - полное имя в формате "Фамилия Имя" (может быть передано с подчеркиванием)
    */
-  static async handleLastnameSelection(ctx: Context, userId: string, lastname: string) {
+  static async handleLastnameSelection(ctx: Context, userId: string, fullName: string) {
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     const today = getMoscowDate();
     
+    // Восстанавливаем пробелы из подчеркиваний (если передано через callback_data)
+    const normalizedName = fullName.replace(/_/g, ' ');
+    const [lastname, firstname] = normalizedName.split(' ').filter(Boolean);
+    
     // Получаем площадки пользователя
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
     
-    // Получаем все отчеты с этой фамилией по площадкам пользователя
+    // Получаем все отчеты с этой фамилией и именем по площадкам пользователя
     const allReports: any[] = [];
     for (const site of sites) {
       const siteReports = await getReportsBySite(site.id, site.date);
-      const filteredReports = siteReports.filter(r => r.lastname.toLowerCase() === lastname.toLowerCase());
+      const filteredReports = siteReports.filter(r => 
+        r.lastname.toLowerCase() === lastname.toLowerCase() &&
+        (firstname ? r.firstname.toLowerCase() === firstname.toLowerCase() : true)
+      );
       allReports.push(...filteredReports);
     }
     
@@ -117,12 +135,20 @@ export class EditFlow {
     }
     
     // Если несколько, показываем список для выбора
-    const keyboard = allReports.map((report) => [
-      {
-        text: `${report.lastname} ${report.firstname} - ${report.date}`,
-        callback_data: `select_report_${report.id}`,
-      },
-    ]);
+    // Получаем площадки для отображения названий
+    const keyboard = await Promise.all(
+      allReports.map(async (report) => {
+        const site = await getSiteById(report.site_id);
+        const siteName = site?.name || 'неизвестная площадка';
+        const formattedDate = this.formatDateShort(report.date);
+        return [
+          {
+            text: `${report.lastname} ${report.firstname} - ${siteName} - ${formattedDate}`,
+            callback_data: `select_report_${report.id}`,
+          },
+        ];
+      })
+    );
     
     await ctx.reply('Выберите отчет для редактирования:', {
       reply_markup: {
@@ -203,12 +229,15 @@ export class EditFlow {
       return;
     }
     
-    const keyboard = reports.map(report => [
-      {
-        text: `${report.lastname} ${report.firstname} - ${report.date}`,
-        callback_data: `select_report_${report.id}`,
-      },
-    ]);
+    const keyboard = reports.map(report => {
+      const formattedDate = this.formatDateShort(report.date);
+      return [
+        {
+          text: `${report.lastname} ${report.firstname} - ${siteName} - ${formattedDate}`,
+          callback_data: `select_report_${report.id}`,
+        },
+      ];
+    });
     
     await ctx.editMessageText('Выберите отчет для редактирования:', {
       reply_markup: {

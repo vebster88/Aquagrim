@@ -77,7 +77,6 @@ export class EditFlow {
       { text: lastname, callback_data: `edit_lastname_${lastname}` },
     ]);
     
-    await ctx.editMessageText('Выберите фамилию сотрудника:');
     await ctx.reply('Выберите фамилию сотрудника:', {
       reply_markup: {
         inline_keyboard: keyboard,
@@ -124,7 +123,6 @@ export class EditFlow {
       },
     ]);
     
-    await ctx.editMessageText('Выберите отчет для редактирования:');
     await ctx.reply('Выберите отчет для редактирования:', {
       reply_markup: {
         inline_keyboard: keyboard,
@@ -321,11 +319,25 @@ export class EditFlow {
       originalReport: report,
       editContext,
     });
-    
+
     if (nextIndex < fields.length) {
       const nextField = fields[nextIndex];
+      const rawValue = nextField.value;
+      const hasValue =
+        rawValue !== null &&
+        rawValue !== undefined &&
+        String(rawValue).trim() !== '';
+
+      const displayValue = nextField.isAmount
+        ? typeof rawValue === 'number'
+          ? CalculationService.formatAmount(rawValue as number)
+          : 'Значения нет❗'
+        : hasValue
+        ? String(rawValue)
+        : 'Значения нет❗';
+
       await ctx.reply(
-        `Текущее значение ${nextField.label}: ${nextField.isAmount ? CalculationService.formatAmount(nextField.value as number) : nextField.value}\n` +
+        `Текущее значение ${nextField.label}: ${displayValue}\n` +
         `Введите новое значение или нажмите "Далее":`,
         getFlowKeyboard()
       );

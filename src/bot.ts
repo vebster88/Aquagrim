@@ -336,8 +336,9 @@ bot.action(/^select_site_(?!edit_)(.+)$/, async (ctx) => {
 bot.action(/^select_site_edit_(.+)$/, async (ctx) => {
   const user = (ctx as any).user;
   const siteId = ctx.match[1];
+  const callbackData = ctx.callbackQuery && 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : undefined;
   console.log('[bot.ts] select_site_edit callback:', {
-    callbackData: ctx.callbackQuery?.data,
+    callbackData,
     extractedSiteId: siteId,
     matchGroups: ctx.match,
   });

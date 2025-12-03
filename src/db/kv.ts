@@ -345,7 +345,7 @@ export async function getLogsByReport(reportId: string): Promise<Log[]> {
   if (!logIds || logIds.length === 0) return [];
   
   const logs = await Promise.all(
-    logIds.map(id => getLogById(id))
+    logIds.map((id: string) => getLogById(id))
   );
   
   // Фильтруем null и сортируем по времени (новые первыми)
@@ -362,7 +362,7 @@ export async function getLogsByUser(userId: string, limit: number = 100): Promis
   if (!logIds || logIds.length === 0) return [];
   
   const logs = await Promise.all(
-    logIds.map(id => getLogById(id))
+    logIds.map((id: string) => getLogById(id))
   );
   
   // Фильтруем null и сортируем по времени (новые первыми)

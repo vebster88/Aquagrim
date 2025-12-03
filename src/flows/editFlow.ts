@@ -350,8 +350,11 @@ export class EditFlow {
    * Обрабатывает выбор поля для редактирования
    */
   static async handleFieldSelection(ctx: Context, userId: string, reportId: string, fieldKey: string) {
+    console.log('[EditFlow] handleFieldSelection - fieldKey:', fieldKey, 'reportId:', reportId);
+    
     const session = await getSession(userId);
     if (!session || !session.context.originalReport) {
+      console.error('[EditFlow] Session not found for userId:', userId);
       await ctx.reply('❌ Сессия не найдена');
       return;
     }
@@ -367,8 +370,12 @@ export class EditFlow {
       { key: 'comment', label: 'Комментарий', value: report.comment },
     ];
     
+    console.log('[EditFlow] Available fields:', fields.map(f => f.key));
+    console.log('[EditFlow] Looking for field:', fieldKey);
+    
     const selectedField = fields.find(f => f.key === fieldKey);
     if (!selectedField) {
+      console.error('[EditFlow] Field not found. fieldKey:', fieldKey, 'Available keys:', fields.map(f => f.key));
       await ctx.reply('❌ Поле не найдено');
       return;
     }

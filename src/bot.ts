@@ -362,8 +362,15 @@ bot.action(/^select_report_(.+)$/, async (ctx) => {
 // Обработка выбора поля для редактирования
 bot.action(/^edit_field_(.+)_(.+)$/, async (ctx) => {
   const user = (ctx as any).user;
+  if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
+  
+  // ctx.match[1] - fieldKey (может содержать подчеркивания, например qr_number)
+  // ctx.match[2] - reportId
   const fieldKey = ctx.match[1];
   const reportId = ctx.match[2];
+  
+  console.log('[bot] edit_field - callbackData:', ctx.callbackQuery.data);
+  console.log('[bot] edit_field - fieldKey:', fieldKey, 'reportId:', reportId);
   await EditFlow.handleFieldSelection(ctx, user.id, reportId, fieldKey);
 });
 

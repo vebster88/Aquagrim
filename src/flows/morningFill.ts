@@ -148,6 +148,7 @@ export class MorningFillFlow {
       `Площадка: ${site.name}\n` +
       `Дата: ${today}\n` +
       `Ответственная: ${site.responsible_lastname} ${site.responsible_firstname}\n` +
+      `Телефон: ${site.phone}\n` +
       `Бонусные планки: ${bonusTargetsFormatted}`,
       getMainKeyboard(isAdmin)
     );

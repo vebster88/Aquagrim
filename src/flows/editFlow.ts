@@ -19,17 +19,8 @@ import { EditContext, DialogState } from '../types';
 import { CalculationService } from '../services/CalculationService';
 import { getFlowKeyboard } from '../utils/keyboards';
 import { AdminPanel } from '../admin/adminPanel';
-import { getMoscowDate } from '../utils/dateTime';
 
 export class EditFlow {
-  /**
-   * Форматирует дату из YYYY-MM-DD в DD.MM.YYYY
-   */
-  private static formatDateShort(dateString: string): string {
-    const [year, month, day] = dateString.split('-');
-    return `${day}.${month}.${year}`;
-  }
-
   /**
    * Начинает процесс редактирования
    */
@@ -50,7 +41,7 @@ export class EditFlow {
   static async handleByLastname(ctx: Context, userId: string) {
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
-    const today = getMoscowDate();
+    const today = new Date().toISOString().split('T')[0];
     
     // Получаем площадки пользователя
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
@@ -78,16 +69,15 @@ export class EditFlow {
       return;
     }
     
-    // Получаем уникальные сочетания фамилия+имя для отсечения однофамильцев
-    const uniqueNames = [...new Set(allReports.map(r => `${r.lastname} ${r.firstname}`))].sort();
+    // Получаем уникальные фамилии
+    const uniqueLastnames = [...new Set(allReports.map(r => r.lastname))].sort();
     
-    // Формируем клавиатуру с фамилией и именем
-    // Используем подчеркивание вместо пробела в callback_data для передачи полного имени
-    const keyboard = uniqueNames.map(fullName => {
-      const callbackData = `edit_lastname_${fullName.replace(/\s+/g, '_')}`;
-      return [{ text: fullName, callback_data: callbackData }];
-    });
+    // Формируем клавиатуру с фамилиями
+    const keyboard = uniqueLastnames.map(lastname => [
+      { text: lastname, callback_data: `edit_lastname_${lastname}` },
+    ]);
     
+    await ctx.editMessageText('Выберите фамилию сотрудника:');
     await ctx.reply('Выберите фамилию сотрудника:', {
       reply_markup: {
         inline_keyboard: keyboard,
@@ -97,28 +87,20 @@ export class EditFlow {
   
   /**
    * Обрабатывает выбор фамилии для редактирования
-   * @param fullName - полное имя в формате "Фамилия Имя" (может быть передано с подчеркиванием)
    */
-  static async handleLastnameSelection(ctx: Context, userId: string, fullName: string) {
+  static async handleLastnameSelection(ctx: Context, userId: string, lastname: string) {
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
-    const today = getMoscowDate();
-    
-    // Восстанавливаем пробелы из подчеркиваний (если передано через callback_data)
-    const normalizedName = fullName.replace(/_/g, ' ');
-    const [lastname, firstname] = normalizedName.split(' ').filter(Boolean);
+    const today = new Date().toISOString().split('T')[0];
     
     // Получаем площадки пользователя
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
     
-    // Получаем все отчеты с этой фамилией и именем по площадкам пользователя
+    // Получаем все отчеты с этой фамилией по площадкам пользователя
     const allReports: any[] = [];
     for (const site of sites) {
       const siteReports = await getReportsBySite(site.id, site.date);
-      const filteredReports = siteReports.filter(r => 
-        r.lastname.toLowerCase() === lastname.toLowerCase() &&
-        (firstname ? r.firstname.toLowerCase() === firstname.toLowerCase() : true)
-      );
+      const filteredReports = siteReports.filter(r => r.lastname.toLowerCase() === lastname.toLowerCase());
       allReports.push(...filteredReports);
     }
     
@@ -135,21 +117,14 @@ export class EditFlow {
     }
     
     // Если несколько, показываем список для выбора
-    // Получаем площадки для отображения названий
-    const keyboard = await Promise.all(
-      allReports.map(async (report) => {
-        const site = await getSiteById(report.site_id);
-        const siteName = site?.name || 'неизвестная площадка';
-        const formattedDate = this.formatDateShort(report.date);
-        return [
-          {
-            text: `${report.lastname} ${report.firstname} - ${siteName} - ${formattedDate}`,
-            callback_data: `select_report_${report.id}`,
-          },
-        ];
-      })
-    );
+    const keyboard = allReports.map((report) => [
+      {
+        text: `${report.lastname} ${report.firstname} - ${report.date}`,
+        callback_data: `select_report_${report.id}`,
+      },
+    ]);
     
+    await ctx.editMessageText('Выберите отчет для редактирования:');
     await ctx.reply('Выберите отчет для редактирования:', {
       reply_markup: {
         inline_keyboard: keyboard,
@@ -162,7 +137,7 @@ export class EditFlow {
    * Обрабатывает выбор режима "по площадке"
    */
   static async handleBySite(ctx: Context, userId: string) {
-    const today = getMoscowDate();
+    const today = new Date().toISOString().split('T')[0];
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
@@ -177,15 +152,9 @@ export class EditFlow {
       return;
     }
     
-    const keyboard = sites.map(site => {
-      const callbackData = `select_site_edit_${site.id}`;
-      console.log('[EditFlow.handleBySite] Creating keyboard button:', {
-        siteId: site.id,
-        siteName: site.name,
-        callbackData,
-      });
-      return [{ text: `${site.name} - ${site.date}`, callback_data: callbackData }];
-    });
+    const keyboard = sites.map(site => [
+      { text: `${site.name} - ${site.date}`, callback_data: `select_site_edit_${site.id}` },
+    ]);
     
     await ctx.reply('Выберите площадку:', {
       reply_markup: {
@@ -201,38 +170,17 @@ export class EditFlow {
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     
-    // Получаем площадку для отображения названия и проверки доступа
-    const site = await getSiteById(siteId);
-    
-    // Диагностический лог для проверки проблемы "неизвестная площадка"
-    // В продакшене можно будет убрать или снизить уровень логирования
-    console.log('[EditFlow.handleSiteSelection] KV site lookup', {
-      siteId,
-      hasSite: !!site,
-      site,
-      userId,
-      isAdmin,
-    });
-    
-    const siteName = site?.name || 'неизвестная площадка';
-    
-    // Редактируем сообщение с выбором площадки
-    try {
-      await ctx.editMessageText(`Площадка выбрана: ${siteName}`);
-    } catch (e) {
-      // Если не удалось отредактировать, игнорируем
-    }
-    
     // Проверяем доступ: для не-админов разрешаем редактирование только своего объекта
     if (!isAdmin) {
+      const site = await getSiteById(siteId);
       if (!site || site.responsible_user_id !== userId) {
-        await ctx.reply('❌ У вас нет доступа к редактированию этой площадки');
+        await ctx.editMessageText('❌ У вас нет доступа к редактированию этой площадки');
         await clearSession(userId);
         return;
       }
     }
     
-    const today = getMoscowDate();
+    const today = new Date().toISOString().split('T')[0];
     const reports = await getReportsBySite(siteId, today);
     
     if (reports.length === 0) {
@@ -246,15 +194,12 @@ export class EditFlow {
       return;
     }
     
-    const keyboard = reports.map(report => {
-      const formattedDate = this.formatDateShort(report.date);
-      return [
-        {
-          text: `${report.lastname} ${report.firstname} - ${siteName} - ${formattedDate}`,
-          callback_data: `select_report_${report.id}`,
-        },
-      ];
-    });
+    const keyboard = reports.map(report => [
+      {
+        text: `${report.lastname} ${report.firstname} - ${report.date}`,
+        callback_data: `select_report_${report.id}`,
+      },
+    ]);
     
     await ctx.editMessageText('Выберите отчет для редактирования:', {
       reply_markup: {
@@ -303,7 +248,7 @@ export class EditFlow {
       originalReport: report,
     });
     
-    await ctx.reply(`Текущее значение: ${report.lastname}\nВведите новое значение или нажмите "Далее":`, getFlowKeyboard());
+    await ctx.reply(`Текущее значение Фамилия: ${report.lastname}\nВведите новое значение или нажмите "Далее":`, getFlowKeyboard());
   }
   
   /**
@@ -325,8 +270,6 @@ export class EditFlow {
       { key: 'cash_amount', label: 'Сумма наличных', value: report.cash_amount, isAmount: true },
       { key: 'terminal_amount', label: 'Сумма по терминалу', value: report.terminal_amount, isAmount: true },
       { key: 'comment', label: 'Комментарий', value: report.comment },
-      { key: 'signature', label: 'Подпись', value: report.signature },
-      { key: 'responsible_signature', label: 'Подпись ответственного', value: report.responsible_signature },
     ];
     
     if (fieldIndex >= fields.length) {
@@ -382,7 +325,7 @@ export class EditFlow {
     if (nextIndex < fields.length) {
       const nextField = fields[nextIndex];
       await ctx.reply(
-        `Текущее значение: ${nextField.isAmount ? CalculationService.formatAmount(nextField.value as number) : nextField.value}\n` +
+        `Текущее значение ${nextField.label}: ${nextField.isAmount ? CalculationService.formatAmount(nextField.value as number) : nextField.value}\n` +
         `Введите новое значение или нажмите "Далее":`,
         getFlowKeyboard()
       );

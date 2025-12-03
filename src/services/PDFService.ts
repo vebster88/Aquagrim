@@ -807,7 +807,7 @@ export class PDFService {
     content.push({
       table: {
         headerRows: 1,
-        widths: [80, 60, 50, 65, 63, 61, 55, 72, 'auto', '*'],
+        widths: [80, 60, 50, 65, 63, 61, 55, 73, 'auto', '*'],
         body: tableBody,
       },
       layout: {

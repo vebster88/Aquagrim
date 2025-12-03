@@ -79,8 +79,8 @@ export class MorningFillFlow {
     const context = { ...session.context, site: { ...session.context.site, bonus_target: bonusTargetString } };
     await createOrUpdateSession(userId, 'morning_fill_responsible_lastname', context);
     
-    // Показываем подтверждение введенных значений
-    const formatted = targets.map(t => t.toFixed(2)).join(', ');
+    // Показываем подтверждение введенных значений (целые числа)
+    const formatted = targets.map(t => Math.round(t).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')).join(', ');
     await ctx.reply(
       `✅ Бонусные планки сохранены: ${formatted} ₽\n\n` +
       `Введите фамилию ответственной:`,

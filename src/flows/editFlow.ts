@@ -108,21 +108,21 @@ export class EditFlow {
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     const today = getMoscowDate();
     
-    // Восстанавливаем пробелы из callback_data и разбираем Фамилию/Имя
+    // Восстанавливаем пробелы из callback_data
     const normalizedName = fullName.replace(/_/g, ' ');
-    const [lastname, firstname] = normalizedName.split(' ').filter(Boolean);
     
     // Получаем площадки пользователя
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
     
-    // Получаем все отчеты с этой фамилией и именем по площадкам пользователя
+    // Получаем все отчеты с этим полным именем по площадкам пользователя
+    // Сравниваем полное имя целиком, чтобы правильно обрабатывать фамилии с пробелами
     const allReports: any[] = [];
     for (const site of sites) {
       const siteReports = await getReportsBySite(site.id, site.date);
-      const filteredReports = siteReports.filter(r =>
-        r.lastname.toLowerCase() === lastname.toLowerCase() &&
-        (!firstname || r.firstname.toLowerCase() === firstname.toLowerCase())
-      );
+      const filteredReports = siteReports.filter(r => {
+        const reportFullName = `${r.lastname} ${r.firstname}`;
+        return reportFullName.toLowerCase() === normalizedName.toLowerCase();
+      });
       allReports.push(...filteredReports);
     }
     

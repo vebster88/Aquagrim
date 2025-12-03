@@ -286,7 +286,7 @@ export class EveningReportFlow {
     // Формируем сводку данных для подтверждения
     const summary = 
       `📋 Проверьте введенные данные:${responsibleNote}\n` +
-      `\n🏢 Площадка: ${site.name}\n` +
+      `🏢 Площадка: ${site.name}\n` +
       `👤 Сотрудник: ${reportData.lastname} ${reportData.firstname}\n` +
       `📱 № QR: ${reportData.qr_number}\n` +
       `💳 Сумма по QR: ${CalculationService.formatAmount(reportData.qr_amount)}\n` +
@@ -430,7 +430,7 @@ export class EveningReportFlow {
           
           const summary = 
             `📋 Проверьте введенные данные:${responsibleNote}\n` +
-            `\n🏢 Площадка: ${site.name}\n` +
+            `🏢 Площадка: ${site.name}\n` +
             `👤 Сотрудник: ${reportData.lastname} ${reportData.firstname}\n` +
             `📱 № QR: ${reportData.qr_number}\n` +
             `💳 Сумма по QR: ${CalculationService.formatAmount(reportData.qr_amount)}\n` +

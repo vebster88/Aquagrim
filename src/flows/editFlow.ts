@@ -197,6 +197,17 @@ export class EditFlow {
     
     // Получаем площадку для отображения названия и проверки доступа
     const site = await getSiteById(siteId);
+    
+    // Диагностический лог для проверки проблемы "неизвестная площадка"
+    // В продакшене можно будет убрать или снизить уровень логирования
+    console.log('[EditFlow.handleSiteSelection] KV site lookup', {
+      siteId,
+      hasSite: !!site,
+      site,
+      userId,
+      isAdmin,
+    });
+    
     const siteName = site?.name || 'неизвестная площадка';
     
     // Редактируем сообщение с выбором площадки

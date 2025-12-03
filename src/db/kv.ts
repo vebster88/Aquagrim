@@ -180,7 +180,10 @@ export async function clearSession(userId: string): Promise<void> {
 // ========== Site ==========
 
 export async function getSiteById(id: string): Promise<Site | null> {
-  const data = await kvClient.get(`${PREFIXES.site}${id}`);
+  const key = `${PREFIXES.site}${id}`;
+  console.log('[KV] getSiteById - requesting key:', key);
+  const data = await kvClient.get(key);
+  console.log('[KV] getSiteById - result:', { id, key, hasData: !!data, dataType: typeof data });
   return data ? (data as Site) : null;
 }
 

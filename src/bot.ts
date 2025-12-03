@@ -360,12 +360,14 @@ bot.action(/^select_report_(.+)$/, async (ctx) => {
 });
 
 // Обработка выбора поля для редактирования
-bot.action(/^edit_field_(.+)_(.+)$/, async (ctx) => {
+// Используем двойное подчеркивание __ как разделитель между fieldKey и reportId
+// чтобы правильно обработать случаи, когда и fieldKey (qr_number), и reportId (report_123) содержат подчеркивания
+bot.action(/^edit_field_(.+?)__(.+)$/, async (ctx) => {
   const user = (ctx as any).user;
   if (!ctx.callbackQuery || !('data' in ctx.callbackQuery)) return;
   
   // ctx.match[1] - fieldKey (может содержать подчеркивания, например qr_number)
-  // ctx.match[2] - reportId
+  // ctx.match[2] - reportId (может содержать подчеркивания, например report_123)
   const fieldKey = ctx.match[1];
   const reportId = ctx.match[2];
   

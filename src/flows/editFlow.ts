@@ -323,7 +323,7 @@ export class EditFlow {
       
       return [{
         text: `${field.label}: ${truncatedValue}`,
-        callback_data: `edit_field_${field.key}_${report.id}`,
+        callback_data: `edit_field_${field.key}__${report.id}`,
       }];
     });
     

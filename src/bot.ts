@@ -317,7 +317,12 @@ bot.action('confirm_cancel', async (ctx) => {
   const user = (ctx as any).user;
   await clearSession(user.id);
   await ctx.editMessageText('Заполнение отменено');
-  await ctx.reply('Главное меню:', getMainKeyboard());
+  
+  // Получаем пользователя и определяем isAdmin
+  const currentUser = await getUserById(user.id);
+  const isAdmin = currentUser ? AdminPanel.isAdmin(currentUser) : false;
+  
+  await ctx.reply('Главное меню:', getMainKeyboard(isAdmin));
 });
 
 bot.action('cancel_cancel', async (ctx) => {

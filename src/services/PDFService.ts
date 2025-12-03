@@ -7,7 +7,7 @@ import PdfPrinter from 'pdfmake';
 import { TDocumentDefinitions } from 'pdfmake/interfaces';
 import { DailyReport, Site } from '../types';
 import { CalculationService } from './CalculationService';
-import { getSiteById } from '../db';
+import { getSiteById, updateReport } from '../db';
 import { formatBonusTargets } from '../utils/bonusTarget';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -623,6 +623,72 @@ export class PDFService {
   }
 
   /**
+   * Начисляет бонус за лучшую выручку (500 рублей) сотруднику с максимальной выручкой
+   * Бонус начисляется только если на площадке больше одного сотрудника
+   */
+  private static async applyBestRevenueBonus(reports: DailyReport[]): Promise<void> {
+    // Бонус начисляется только если больше одного сотрудника
+    if (reports.length <= 1) {
+      return;
+    }
+
+    // Находим сотрудника с максимальной выручкой
+    let maxRevenue = -1;
+    let bestEmployee: DailyReport | null = null;
+
+    for (const report of reports) {
+      if (report.total_revenue > maxRevenue) {
+        maxRevenue = report.total_revenue;
+        bestEmployee = report;
+      }
+    }
+
+    if (!bestEmployee) {
+      return;
+    }
+
+    // Проверяем, не был ли уже начислен бонус за лучшую выручку
+    // Проверяем по наличию "+ЛВ" в комментарии
+    const hasBestRevenueBonus = bestEmployee.comment && bestEmployee.comment.includes('+ЛВ');
+    
+    if (!hasBestRevenueBonus) {
+      // Добавляем 500 рублей к bonus_penalty
+      const currentBonus = bestEmployee.bonus_penalty || 0;
+      bestEmployee.bonus_penalty = currentBonus + 500;
+
+      // Добавляем "+ЛВ" к комментарию
+      if (bestEmployee.comment) {
+        bestEmployee.comment = `${bestEmployee.comment} +ЛВ`;
+      } else {
+        bestEmployee.comment = '+ЛВ';
+      }
+
+      // Пересчитываем значения с учетом нового бонуса
+      const calculations = CalculationService.calculate({
+        qr_amount: bestEmployee.qr_amount,
+        cash_amount: bestEmployee.cash_amount,
+        terminal_amount: bestEmployee.terminal_amount || 0,
+        bonus_penalty: bestEmployee.bonus_penalty,
+      });
+
+      const updatedReport = {
+        ...bestEmployee,
+        ...calculations,
+      };
+
+      await updateReport(updatedReport);
+      
+      // Обновляем объект в массиве reports, чтобы использовать актуальные данные
+      const index = reports.findIndex(r => r.id === bestEmployee.id);
+      if (index !== -1) {
+        reports[index] = updatedReport;
+      }
+      
+      console.log(`[PDFService] Applied best revenue bonus (500 ₽) to ${bestEmployee.lastname} ${bestEmployee.firstname} (revenue: ${updatedReport.total_revenue} ₽)`);
+    }
+  }
+
+  /**
    * Генерирует сводный PDF по площадке:
    * 1) Таблица с сотрудниками и их результатами
    * 2) Сводные итоги по объекту
@@ -630,6 +696,12 @@ export class PDFService {
    */
   static async generateSiteSummaryPDF(site: Site, reports: DailyReport[]): Promise<Buffer> {
     console.log(`Starting site summary PDF generation for site ${site.id} (${site.name}), reports count: ${reports.length}`);
+
+    // Начисляем бонус за лучшую выручку перед генерацией PDF
+    await this.applyBestRevenueBonus(reports);
+    
+    // Обновляем список отчетов после начисления бонуса (на случай, если нужно перечитать из БД)
+    // Но так как мы обновили объект напрямую, можно продолжить с текущим списком
 
     let printer: PdfPrinter;
     try {
@@ -807,7 +879,7 @@ export class PDFService {
     content.push({
       table: {
         headerRows: 1,
-        widths: [80, 60, 50, 65, 63, 61, 55, 73, 'auto', '*'],
+        widths: [80, 60, 50, 65, 63, 61, 55, 78, 'auto', '*'],
         body: tableBody,
       },
       layout: {

@@ -483,46 +483,34 @@ bot.action('admin_add_admin', async (ctx) => {
   const user = (ctx as any).user;
   console.log('[BOT] admin_add_admin action, user:', user.id);
   
-  // Проверяем права до создания сессии
-  const currentUser = await getUserById(user.id);
-  if (!currentUser || currentUser.role !== 'superadmin') {
-    await ctx.reply('❌ Только супер-админ может добавлять админов');
-    return;
-  }
+  // Используем функцию из AdminPanel для обработки
+  await AdminPanel.handleAddAdmin(ctx, user.id);
   
-  await ctx.reply('Введите Telegram ID пользователя, которого нужно сделать админом:');
-  
-  // Сохраняем состояние для ввода Telegram ID
+  // Сохраняем состояние для ввода Telegram ID или username
   const session = await getSession(user.id);
   console.log('[BOT] Creating session for admin_add_admin, existing session:', !!session);
   await createOrUpdateSession(user.id, 'admin_add_admin', { 
     ...(session?.context || {}), 
     waiting_for_admin_id: true 
   });
-  console.log('[BOT] Session created, waiting for admin ID input');
+  console.log('[BOT] Session created, waiting for admin ID/username input');
 });
 
 bot.action('admin_remove_admin', async (ctx) => {
   const user = (ctx as any).user;
   console.log('[BOT] admin_remove_admin action, user:', user.id);
   
-  // Проверяем права до создания сессии
-  const currentUser = await getUserById(user.id);
-  if (!currentUser || currentUser.role !== 'superadmin') {
-    await ctx.reply('❌ Только супер-админ может убирать роли админов');
-    return;
-  }
+  // Используем функцию из AdminPanel для обработки
+  await AdminPanel.handleRemoveAdmin(ctx, user.id);
   
-  await ctx.reply('Введите Telegram ID пользователя, у которого нужно убрать роль админа:');
-  
-  // Сохраняем состояние для ввода Telegram ID
+  // Сохраняем состояние для ввода Telegram ID или username
   const session = await getSession(user.id);
   console.log('[BOT] Creating session for admin_remove_admin, existing session:', !!session);
   await createOrUpdateSession(user.id, 'admin_remove_admin', { 
     ...(session?.context || {}), 
     waiting_for_admin_id: true 
   });
-  console.log('[BOT] Session created, waiting for admin ID input');
+  console.log('[BOT] Session created, waiting for admin ID/username input');
 });
 
 bot.action('admin_view_logs', async (ctx) => {

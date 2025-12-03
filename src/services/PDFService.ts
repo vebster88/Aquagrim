@@ -751,7 +751,7 @@ export class PDFService {
       { text: 'Бонусы/штрафы', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'Ответствен-ный (ЗП)', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'Подпись', ...this.getBoldStyle(), alignment: 'left', fontSize: 11 },
-      { text: 'Коммен-тарий', ...this.getBoldStyle(), alignment: 'left', fontSize: 11 },
+      { text: 'Комментарий', ...this.getBoldStyle(), alignment: 'left', fontSize: 11 },
     ]);
 
     for (const r of reports) {
@@ -807,7 +807,7 @@ export class PDFService {
     content.push({
       table: {
         headerRows: 1,
-        widths: [80, 60, 50, 65, 63, 61, 55, 65, 'auto', '*'],
+        widths: [80, 60, 50, 65, 63, 61, 55, 68, 'auto', '*'],
         body: tableBody,
       },
       layout: {

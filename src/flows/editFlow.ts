@@ -281,7 +281,14 @@ export class EditFlow {
       originalReport: report,
     });
     
-    await ctx.reply(`Текущее значение Фамилия: ${report.lastname}\nВведите новое значение или нажмите "Далее":`, getFlowKeyboard());
+    const startKeyboard = getFlowKeyboard();
+    await ctx.reply(
+      `Текущее значение Фамилия: ${report.lastname}\nВведите новое значение или нажмите "Далее":`,
+      {
+        parse_mode: 'HTML',
+        reply_markup: startKeyboard.reply_markup,
+      }
+    );
   }
   
   /**
@@ -366,15 +373,19 @@ export class EditFlow {
       const displayValue = nextField.isAmount
         ? typeof rawValue === 'number'
           ? CalculationService.formatAmount(rawValue as number)
-          : '<i>Значения нет</i>❗'
+          : '<i>Значения нет❗</i>'
         : hasValue
         ? String(rawValue)
-        : '<i>Значения нет</i>❗';
+        : '<i>Значения нет❗</i>';
 
+      const keyboard = getFlowKeyboard();
       await ctx.reply(
         `Текущее значение ${nextField.label}: ${displayValue}\n` +
         `Введите новое значение или нажмите "Далее":`,
-        getFlowKeyboard()
+        {
+          parse_mode: 'HTML',
+          reply_markup: keyboard.reply_markup,
+        }
       );
     } else {
       await ctx.reply('Все поля обработаны. Сохраняю изменения...');

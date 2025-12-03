@@ -551,11 +551,11 @@ export class PDFService {
       content,
       styles: {
         header: {
-          fontSize: 20,
+          fontSize: 18,
           ...(PDFService.fontCache && (PDFService.fontCache.DejaVuSans || PDFService.fontCache.Roboto || PDFService.fontCache.Helvetica) ? { bold: true } : {}),
         },
         sectionHeader: {
-          fontSize: 16,
+          fontSize: 14,
           ...(PDFService.fontCache && (PDFService.fontCache.DejaVuSans || PDFService.fontCache.Roboto || PDFService.fontCache.Helvetica) ? { bold: true } : {}),
           decoration: 'underline',
         },
@@ -807,7 +807,7 @@ export class PDFService {
     content.push({
       table: {
         headerRows: 1,
-        widths: [80, 60, 50, 65, 63, 61, 55, 70, 'auto', '*'],
+        widths: [80, 60, 50, 65, 63, 61, 55, 71, 'auto', '*'],
         body: tableBody,
       },
       layout: {
@@ -895,11 +895,11 @@ export class PDFService {
       content,
       styles: {
         header: {
-          fontSize: 20,
+          fontSize: 18,
           ...(PDFService.fontCache && (PDFService.fontCache.DejaVuSans || PDFService.fontCache.Roboto || PDFService.fontCache.Helvetica) ? { bold: true } : {}),
         },
         sectionHeader: {
-          fontSize: 16,
+          fontSize: 14,
           ...(PDFService.fontCache && (PDFService.fontCache.DejaVuSans || PDFService.fontCache.Roboto || PDFService.fontCache.Helvetica) ? { bold: true } : {}),
           decoration: 'underline',
         },

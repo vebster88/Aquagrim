@@ -78,7 +78,6 @@ export class EditFlow {
       { text: lastname, callback_data: `edit_lastname_${lastname}` },
     ]);
     
-    await ctx.editMessageText('Выберите фамилию сотрудника:');
     await ctx.reply('Выберите фамилию сотрудника:', {
       reply_markup: {
         inline_keyboard: keyboard,
@@ -125,7 +124,6 @@ export class EditFlow {
       },
     ]);
     
-    await ctx.editMessageText('Выберите отчет для редактирования:');
     await ctx.reply('Выберите отчет для редактирования:', {
       reply_markup: {
         inline_keyboard: keyboard,
@@ -171,11 +169,21 @@ export class EditFlow {
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     
+    // Получаем площадку для отображения названия и проверки доступа
+    const site = await getSiteById(siteId);
+    const siteName = site?.name || 'неизвестная площадка';
+    
+    // Редактируем сообщение с выбором площадки
+    try {
+      await ctx.editMessageText(`Площадка выбрана: ${siteName}`);
+    } catch (e) {
+      // Если не удалось отредактировать, игнорируем
+    }
+    
     // Проверяем доступ: для не-админов разрешаем редактирование только своего объекта
     if (!isAdmin) {
-      const site = await getSiteById(siteId);
       if (!site || site.responsible_user_id !== userId) {
-        await ctx.editMessageText('❌ У вас нет доступа к редактированию этой площадки');
+        await ctx.reply('❌ У вас нет доступа к редактированию этой площадки');
         await clearSession(userId);
         return;
       }

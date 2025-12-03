@@ -16,7 +16,6 @@ import {
 import { UserRole } from '../types';
 import { PDFService } from '../services/PDFService';
 import { CalculationService } from '../services/CalculationService';
-import { getMoscowDate } from '../utils/dateTime';
 
 export class AdminPanel {
   /**
@@ -56,7 +55,7 @@ export class AdminPanel {
    * Показывает список площадок за сегодня
    */
   static async viewSites(ctx: Context) {
-    const today = getMoscowDate();
+    const today = new Date().toISOString().split('T')[0];
     const sites = await getSitesByDate(today);
     
     if (sites.length === 0) {
@@ -85,7 +84,7 @@ export class AdminPanel {
    * Обрабатывает запрос PDF отчета
    */
   static async handleGetPDF(ctx: Context) {
-    const today = getMoscowDate();
+    const today = new Date().toISOString().split('T')[0];
     const sites = await getSitesByDate(today);
     
     if (sites.length === 0) {

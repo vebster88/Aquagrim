@@ -21,14 +21,13 @@ import { CalculationService } from '../services/CalculationService';
 import { getFlowKeyboard, getConfirmKeyboard, getMainKeyboard } from '../utils/keyboards';
 import { calculateBonusByTargets } from '../utils/bonusTarget';
 import { AdminPanel } from '../admin/adminPanel';
-import { getMoscowDate } from '../utils/dateTime';
 
 export class EveningReportFlow {
   /**
    * Начинает процесс вечернего отчета
    */
   static async start(ctx: Context, userId: string) {
-    const today = getMoscowDate();
+    const today = new Date().toISOString().split('T')[0];
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
@@ -96,7 +95,7 @@ export class EveningReportFlow {
    * Обрабатывает выбор площадки
    */
   static async handleSiteSelection(ctx: Context, userId: string, siteId: string) {
-    const today = getMoscowDate();
+    const today = new Date().toISOString().split('T')[0];
     
     // Проверяем, есть ли уже отчёты для этой площадки
     const existingReports = await getReportsBySite(siteId, today);
@@ -321,7 +320,7 @@ export class EveningReportFlow {
       return;
     }
     
-    const today = getMoscowDate();
+    const today = new Date().toISOString().split('T')[0];
     
     // Выполняем расчеты
     const calculations = CalculationService.calculate({
@@ -370,10 +369,11 @@ export class EveningReportFlow {
     await clearSession(userId);
     
     // Показываем краткий итог
+    const responsibleNote = isResponsible ? '\n⭐ Ответственный (ЗП начисляется вручную)\n' : '';
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     await ctx.reply(
-      `✅ Отчет сохранен!\n` +
+      `✅ Отчет сохранен!${responsibleNote}\n` +
       
       `⚠️ Пожалуйста, проверьте соответствие сумм с отчетом.`,
       getMainKeyboard(isAdmin)
@@ -430,8 +430,8 @@ export class EveningReportFlow {
           const cash_in_envelope = reportData.cash_amount - totalBonusesPenalties;
           
           const summary = 
-            `📋 Проверьте введенные данные:${responsibleNote}\n` +
-            `\n🏢 Площадка: ${site.name}\n` +
+            `📋 Проверьте введенные данные:${responsibleNote}\n\n` +
+            `🏢 Площадка: ${site.name}\n` +
             `👤 Сотрудник: ${reportData.lastname} ${reportData.firstname}\n` +
             `📱 № QR: ${reportData.qr_number}\n` +
             `💳 Сумма по QR: ${CalculationService.formatAmount(reportData.qr_amount)}\n` +

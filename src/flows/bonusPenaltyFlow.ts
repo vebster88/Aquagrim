@@ -18,14 +18,13 @@ import {
 import { CalculationService } from '../services/CalculationService';
 import { getFlowKeyboard, getMainKeyboard } from '../utils/keyboards';
 import { AdminPanel } from '../admin/adminPanel';
-import { getMoscowDate } from '../utils/dateTime';
 
 export class BonusPenaltyFlow {
   /**
    * Начинает процесс начисления бонуса/штрафа
    */
   static async start(ctx: Context, userId: string) {
-    const today = getMoscowDate();
+    const today = new Date().toISOString().split('T')[0];
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
@@ -68,7 +67,7 @@ export class BonusPenaltyFlow {
    * Выбирает площадку и показывает список сотрудников
    */
   static async selectSite(ctx: Context, userId: string, siteId: string) {
-    const today = getMoscowDate();
+    const today = new Date().toISOString().split('T')[0];
     const reports = await getReportsBySite(siteId, today);
     
     if (reports.length === 0) {
@@ -140,7 +139,7 @@ export class BonusPenaltyFlow {
       
       await ctx.reply(
         `Выберите тип начисления для ответственного:\n\n` +
-        `Текущий бонус/штраф: ${report.bonus_penalty ? (report.bonus_penalty > 0 ? '+' : '') + CalculationService.formatAmount(report.bonus_penalty) : '0 ₽'}\n` +
+        `Текущий бонус/штраф: ${report.bonus_penalty != null ? (report.bonus_penalty > 0 ? '+' : '') + CalculationService.formatAmount(report.bonus_penalty) : CalculationService.formatAmount(0)}\n` +
         `Текущая ЗП ответственного: ${report.responsible_salary_bonus ? CalculationService.formatAmount(report.responsible_salary_bonus) : 'не начислена'}`,
         {
           reply_markup: {
@@ -162,7 +161,7 @@ export class BonusPenaltyFlow {
       
       await ctx.reply(
         `Введите сумму бонуса (положительное число) или штрафа (отрицательное число, например: -500):\n\n` +
-        `Текущий бонус/штраф: ${report.bonus_penalty ? (report.bonus_penalty > 0 ? '+' : '') + CalculationService.formatAmount(report.bonus_penalty) : '0.00 ₽'}`,
+        `Текущий бонус/штраф: ${report.bonus_penalty != null ? (report.bonus_penalty > 0 ? '+' : '') + CalculationService.formatAmount(report.bonus_penalty) : CalculationService.formatAmount(0)}`,
         getFlowKeyboard()
       );
     }
@@ -202,7 +201,7 @@ export class BonusPenaltyFlow {
     if (type === 'penalty') {
       await ctx.reply(
         `Введите сумму бонуса (положительное число в рублях) или штрафа (отрицательное число в рублях, например: -500):\n\n` +
-        `Текущий бонус/штраф: ${report.bonus_penalty ? (report.bonus_penalty > 0 ? '+' : '') + CalculationService.formatAmount(report.bonus_penalty) : '0.00 ₽'}`,
+        `Текущий бонус/штраф: ${report.bonus_penalty != null ? (report.bonus_penalty > 0 ? '+' : '') + CalculationService.formatAmount(report.bonus_penalty) : CalculationService.formatAmount(0)}`,
         getFlowKeyboard()
       );
     } else {

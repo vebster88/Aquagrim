@@ -16,7 +16,6 @@ import { getFlowKeyboard, getMainKeyboard } from '../utils/keyboards';
 import { getUserById } from '../db';
 import { AdminPanel } from '../admin/adminPanel';
 import { parseBonusTargets, bonusTargetsToString, formatBonusTargets } from '../utils/bonusTarget';
-import { getMoscowDate } from '../utils/dateTime';
 
 export class MorningFillFlow {
   /**
@@ -124,7 +123,7 @@ export class MorningFillFlow {
     const user = await getUserByTelegramId(ctx.from?.id || 0);
     if (!user) return;
     
-    const today = getMoscowDate(); // YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     
     const site = await createSite({
       name: session.context.site.name,

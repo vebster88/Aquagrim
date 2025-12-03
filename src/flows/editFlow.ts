@@ -14,6 +14,7 @@ import {
   updateReport,
   createLog,
   getSitesByDateForUser,
+  getLogsByReport,
 } from '../db';
 import { EditContext, DialogState } from '../types';
 import { CalculationService } from '../services/CalculationService';
@@ -242,7 +243,7 @@ export class EditFlow {
   }
   
   /**
-   * Начинает редактирование отчета
+   * Начинает редактирование отчета - показывает меню параметров
    */
   static async startEditingReport(ctx: Context, userId: string, reportId: string, mode: 'by_lastname' | 'by_site') {
     const report = await getReportById(reportId);
@@ -271,8 +272,8 @@ export class EditFlow {
       report_id: reportId,
       site_id: report.site_id,
       date: report.date,
-      current_field: 'lastname',
-      field_index: 0,
+      current_field: undefined,
+      field_index: undefined,
     };
     
     await createOrUpdateSession(userId, 'edit_field', {
@@ -281,12 +282,128 @@ export class EditFlow {
       originalReport: report,
     });
     
-    const startKeyboard = getFlowKeyboard();
-    await ctx.reply(
-      `Текущее значение Фамилия: ${report.lastname}\nВведите новое значение или нажмите "Далее":`,
+    // Показываем меню параметров
+    await this.showFieldMenu(ctx, userId, report);
+  }
+
+  /**
+   * Показывает меню выбора параметров для редактирования
+   */
+  static async showFieldMenu(ctx: Context, userId: string, report: any) {
+    const fields = [
+      { key: 'lastname', label: 'Фамилия', value: report.lastname },
+      { key: 'firstname', label: 'Имя', value: report.firstname },
+      { key: 'qr_number', label: '№ QR', value: report.qr_number },
+      { key: 'qr_amount', label: 'Сумма по QR', value: report.qr_amount, isAmount: true },
+      { key: 'cash_amount', label: 'Сумма наличных', value: report.cash_amount, isAmount: true },
+      { key: 'terminal_amount', label: 'Сумма по терминалу', value: report.terminal_amount, isAmount: true },
+      { key: 'comment', label: 'Комментарий', value: report.comment },
+    ];
+    
+    const keyboard = fields.map(field => {
+      const rawValue = field.value;
+      const hasValue =
+        rawValue !== null &&
+        rawValue !== undefined &&
+        String(rawValue).trim() !== '';
+      
+      let displayValue: string;
+      if (field.isAmount) {
+        displayValue = typeof rawValue === 'number'
+          ? CalculationService.formatAmount(rawValue as number)
+          : 'нет значения';
+      } else {
+        displayValue = hasValue ? String(rawValue) : 'нет значения';
+      }
+      
+      // Ограничиваем длину значения для кнопки (макс 30 символов)
+      const truncatedValue = displayValue.length > 30 
+        ? displayValue.substring(0, 27) + '...' 
+        : displayValue;
+      
+      return [{
+        text: `${field.label}: ${truncatedValue}`,
+        callback_data: `edit_field_${field.key}_${report.id}`,
+      }];
+    });
+    
+    // Добавляем кнопку "История изменений"
+    keyboard.push([{
+      text: '📝 История изменений',
+      callback_data: `view_logs_${report.id}`,
+    }]);
+    
+    // Добавляем кнопку "Завершить"
+    keyboard.push([{
+      text: '✅ Завершить редактирование',
+      callback_data: `finish_editing_${report.id}`,
+    }]);
+    
+    await ctx.reply('Выберите параметр для редактирования:', {
+      reply_markup: {
+        inline_keyboard: keyboard,
+      } as any,
+    });
+  }
+
+  /**
+   * Обрабатывает выбор поля для редактирования
+   */
+  static async handleFieldSelection(ctx: Context, userId: string, reportId: string, fieldKey: string) {
+    const session = await getSession(userId);
+    if (!session || !session.context.originalReport) {
+      await ctx.reply('❌ Сессия не найдена');
+      return;
+    }
+    
+    const report = session.context.originalReport;
+    const fields = [
+      { key: 'lastname', label: 'Фамилия', value: report.lastname },
+      { key: 'firstname', label: 'Имя', value: report.firstname },
+      { key: 'qr_number', label: '№ QR', value: report.qr_number },
+      { key: 'qr_amount', label: 'Сумма по QR', value: report.qr_amount, isAmount: true },
+      { key: 'cash_amount', label: 'Сумма наличных', value: report.cash_amount, isAmount: true },
+      { key: 'terminal_amount', label: 'Сумма по терминалу', value: report.terminal_amount, isAmount: true },
+      { key: 'comment', label: 'Комментарий', value: report.comment },
+    ];
+    
+    const selectedField = fields.find(f => f.key === fieldKey);
+    if (!selectedField) {
+      await ctx.reply('❌ Поле не найдено');
+      return;
+    }
+    
+    // Обновляем контекст редактирования
+    const editContext: EditContext = session.context.editContext;
+    editContext.current_field = fieldKey;
+    
+    await createOrUpdateSession(userId, 'edit_field', {
+      ...session.context,
+      editContext,
+    });
+    
+    // Показываем текущее значение и запрашиваем новое
+    const rawValue = selectedField.value;
+    const hasValue =
+      rawValue !== null &&
+      rawValue !== undefined &&
+      String(rawValue).trim() !== '';
+
+    const displayValue = selectedField.isAmount
+      ? typeof rawValue === 'number'
+        ? CalculationService.formatAmount(rawValue as number)
+        : '<i>Значения нет❗</i>'
+      : hasValue
+      ? String(rawValue)
+      : '<i>Значения нет❗</i>';
+
+    const keyboard = getFlowKeyboard();
+    await ctx.editMessageText(
+      `Текущее значение ${selectedField.label}: ${displayValue}\n` +
+      `Введите новое значение или нажмите "Далее":`,
       {
         parse_mode: 'HTML',
-        reply_markup: startKeyboard.reply_markup,
+        reply_markup: keyboard.reply_markup as any,
       }
     );
   }
@@ -300,7 +417,12 @@ export class EditFlow {
     
     const report = session.context.originalReport;
     const editContext: EditContext = session.context.editContext;
-    const fieldIndex = editContext.field_index || 0;
+    const fieldKey = editContext.current_field;
+    
+    if (!fieldKey) {
+      await ctx.reply('❌ Поле не выбрано');
+      return;
+    }
     
     const fields = [
       { key: 'lastname', label: 'Фамилия', value: report.lastname },
@@ -312,13 +434,12 @@ export class EditFlow {
       { key: 'comment', label: 'Комментарий', value: report.comment },
     ];
     
-    if (fieldIndex >= fields.length) {
-      // Все поля обработаны, сохраняем изменения
-      await this.saveEditedReport(ctx, userId, report);
+    const currentField = fields.find(f => f.key === fieldKey);
+    if (!currentField) {
+      await ctx.reply('❌ Поле не найдено');
       return;
     }
     
-    const currentField = fields[fieldIndex];
     let updatedValue: any = currentField.value;
     
     // Если введено новое значение
@@ -349,48 +470,153 @@ export class EditFlow {
       // Обновляем значение в отчете
       const reportAny = report as any;
       reportAny[currentField.key] = updatedValue;
+      
+      // Обновляем сессию с новым значением
+      await createOrUpdateSession(userId, 'edit_field', {
+        ...session.context,
+        originalReport: report,
+      });
     }
     
-    // Переходим к следующему полю
-    const nextIndex = fieldIndex + 1;
-    editContext.field_index = nextIndex;
-    editContext.current_field = nextIndex < fields.length ? fields[nextIndex].key : undefined;
-    
+    // Очищаем текущее поле и возвращаемся в меню
+    editContext.current_field = undefined;
     await createOrUpdateSession(userId, 'edit_field', {
       ...session.context,
-      originalReport: report,
       editContext,
     });
+    
+    // Возвращаемся в меню параметров
+    await ctx.reply('✅ Параметр обновлен');
+    await this.showFieldMenu(ctx, userId, report);
+  }
 
-    if (nextIndex < fields.length) {
-      const nextField = fields[nextIndex];
-      const rawValue = nextField.value;
-      const hasValue =
-        rawValue !== null &&
-        rawValue !== undefined &&
-        String(rawValue).trim() !== '';
-
-      const displayValue = nextField.isAmount
-        ? typeof rawValue === 'number'
-          ? CalculationService.formatAmount(rawValue as number)
-          : '<i>Значения нет❗</i>'
-        : hasValue
-        ? String(rawValue)
-        : '<i>Значения нет❗</i>';
-
-      const keyboard = getFlowKeyboard();
-      await ctx.reply(
-        `Текущее значение ${nextField.label}: ${displayValue}\n` +
-        `Введите новое значение или нажмите "Далее":`,
-        {
-          parse_mode: 'HTML',
-          reply_markup: keyboard.reply_markup,
-        }
-      );
-    } else {
-      await ctx.reply('Все поля обработаны. Сохраняю изменения...');
-      await this.saveEditedReport(ctx, userId, report);
+  /**
+   * Завершает редактирование и сохраняет отчет
+   */
+  static async finishEditing(ctx: Context, userId: string, reportId: string) {
+    const session = await getSession(userId);
+    if (!session || !session.context.originalReport) {
+      await ctx.reply('❌ Сессия не найдена');
+      return;
     }
+    
+    const report = session.context.originalReport;
+    await this.saveEditedReport(ctx, userId, report);
+  }
+
+  /**
+   * Показывает историю изменений отчета
+   */
+  static async showReportLogs(ctx: Context, userId: string, reportId: string) {
+    const report = await getReportById(reportId);
+    if (!report) {
+      await ctx.reply('❌ Отчет не найден');
+      return;
+    }
+    
+    const logs = await getLogsByReport(reportId);
+    
+    // Фильтруем только логи редактирования полей
+    const editLogs = logs.filter(log => log.action_type === 'field_edited');
+    
+    if (editLogs.length === 0) {
+      await ctx.reply('📝 История изменений пуста. Этот отчет еще не редактировался.');
+      return;
+    }
+    
+    let message = `📝 История изменений отчета:\n`;
+    message += `Сотрудник: ${report.lastname} ${report.firstname}\n`;
+    message += `Дата: ${this.formatDateShort(report.date)}\n\n`;
+    message += `Всего изменений: ${editLogs.length}\n\n`;
+    
+    for (const log of editLogs) {
+      const user = await getUserById(log.user_id);
+      const username = user?.username || `ID: ${user?.telegram_id}` || 'Неизвестный';
+      
+      const fieldLabel = this.getFieldLabel(log.payload_before?.field || '');
+      const oldValue = this.formatFieldValue(log.payload_before?.field, log.payload_before?.old_value);
+      const newValue = this.formatFieldValue(log.payload_before?.field, log.payload_before?.new_value);
+      
+      const timestamp = new Date(log.timestamp);
+      const formattedDate = timestamp.toLocaleString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      
+      message += `🕐 ${formattedDate}\n`;
+      message += `👤 ${username}\n`;
+      message += `📝 ${fieldLabel}:\n`;
+      message += `   Было: ${oldValue}\n`;
+      message += `   Стало: ${newValue}\n\n`;
+    }
+    
+    // Разбиваем сообщение на части, если оно слишком длинное
+    const maxLength = 4000; // Telegram ограничение
+    if (message.length > maxLength) {
+      const parts = [];
+      let currentPart = message.split('\n\n')[0] + '\n\n';
+      
+      for (let i = 1; i < message.split('\n\n').length; i++) {
+        const block = message.split('\n\n')[i];
+        if ((currentPart + block + '\n\n').length > maxLength) {
+          parts.push(currentPart);
+          currentPart = block + '\n\n';
+        } else {
+          currentPart += block + '\n\n';
+        }
+      }
+      parts.push(currentPart);
+      
+      for (const part of parts) {
+        await ctx.reply(part);
+      }
+    } else {
+      await ctx.reply(message);
+    }
+    
+    // Возвращаемся в меню редактирования
+    const session = await getSession(userId);
+    if (session && session.context.originalReport) {
+      await this.showFieldMenu(ctx, userId, session.context.originalReport);
+    }
+  }
+
+  /**
+   * Получает читаемое название поля
+   */
+  private static getFieldLabel(fieldKey: string): string {
+    const labels: Record<string, string> = {
+      lastname: 'Фамилия',
+      firstname: 'Имя',
+      qr_number: '№ QR',
+      qr_amount: 'Сумма по QR',
+      cash_amount: 'Сумма наличных',
+      terminal_amount: 'Сумма по терминалу',
+      comment: 'Комментарий',
+      bonus_penalty: 'Бонус/штраф',
+    };
+    return labels[fieldKey] || fieldKey;
+  }
+
+  /**
+   * Форматирует значение поля для отображения
+   */
+  private static formatFieldValue(fieldKey: string, value: any): string {
+    if (value === null || value === undefined || value === '') {
+      return '<пусто>';
+    }
+    
+    // Для денежных полей используем форматирование
+    if (fieldKey === 'qr_amount' || fieldKey === 'cash_amount' || fieldKey === 'terminal_amount' || fieldKey === 'bonus_penalty') {
+      return typeof value === 'number' 
+        ? CalculationService.formatAmount(value)
+        : String(value);
+    }
+    
+    return String(value);
   }
   
   /**

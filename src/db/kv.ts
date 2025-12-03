@@ -321,6 +321,53 @@ export async function createLog(
   // Также сохраняем индекс по пользователю для быстрого поиска
   await kvClient.lpush(`logs:user:${userId}`, id);
   
+  // Если это логирование изменений отчета, сохраняем индекс по report_id
+  if (actionType === 'field_edited' && payloadBefore?.report_id) {
+    await kvClient.lpush(`logs:report:${payloadBefore.report_id}`, id);
+  }
+  
   return log;
+}
+
+/**
+ * Получает лог по ID
+ */
+export async function getLogById(logId: string): Promise<Log | null> {
+  const data = await kvClient.get(`${PREFIXES.log}${logId}`);
+  return data ? (data as Log) : null;
+}
+
+/**
+ * Получает все логи по отчету
+ */
+export async function getLogsByReport(reportId: string): Promise<Log[]> {
+  const logIds = await kvClient.lrange(`logs:report:${reportId}`, 0, -1);
+  if (!logIds || logIds.length === 0) return [];
+  
+  const logs = await Promise.all(
+    logIds.map(id => getLogById(id))
+  );
+  
+  // Фильтруем null и сортируем по времени (новые первыми)
+  return logs
+    .filter((log): log is Log => log !== null)
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+}
+
+/**
+ * Получает все логи пользователя
+ */
+export async function getLogsByUser(userId: string, limit: number = 100): Promise<Log[]> {
+  const logIds = await kvClient.lrange(`logs:user:${userId}`, 0, limit - 1);
+  if (!logIds || logIds.length === 0) return [];
+  
+  const logs = await Promise.all(
+    logIds.map(id => getLogById(id))
+  );
+  
+  // Фильтруем null и сортируем по времени (новые первыми)
+  return logs
+    .filter((log): log is Log => log !== null)
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 

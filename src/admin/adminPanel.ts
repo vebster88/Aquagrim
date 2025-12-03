@@ -12,6 +12,7 @@ import {
   updateUser,
   createLog,
   getSiteById,
+  getLogsByReport,
 } from '../db';
 import { UserRole } from '../types';
 import { PDFService } from '../services/PDFService';
@@ -38,6 +39,7 @@ export class AdminPanel {
     const keyboard = [
       [{ text: '📊 Посмотреть площадки', callback_data: 'admin_view_sites' }],
       [{ text: '📄 Получить PDF отчета', callback_data: 'admin_get_pdf' }],
+      [{ text: '📝 История изменений отчета', callback_data: 'admin_view_logs' }],
     ];
     
     if (user.role === 'superadmin') {
@@ -186,6 +188,139 @@ export class AdminPanel {
   }
   
   /**
+   * Обрабатывает запрос истории изменений отчета
+   */
+  static async handleViewLogs(ctx: Context) {
+    const today = new Date().toISOString().split('T')[0];
+    const sites = await getSitesByDate(today);
+    
+    if (sites.length === 0) {
+      await ctx.reply('На сегодня нет площадок');
+      return;
+    }
+    
+    const keyboard = sites.map(site => [
+      { text: site.name, callback_data: `admin_logs_site_${site.id}` },
+    ]);
+    
+    await ctx.reply('Выберите площадку для просмотра истории изменений:', {
+      reply_markup: {
+        inline_keyboard: keyboard,
+      },
+    });
+  }
+
+  /**
+   * Показывает список отчетов площадки для выбора истории
+   */
+  static async handleSiteLogsSelection(ctx: Context, siteId: string) {
+    const site = await getSiteById(siteId);
+    if (!site) {
+      await ctx.reply('❌ Площадка не найдена');
+      return;
+    }
+    
+    const reports = await getReportsBySite(siteId, site.date);
+    
+    if (reports.length === 0) {
+      await ctx.reply('❌ Отчеты по этой площадке не найдены');
+      return;
+    }
+    
+    const keyboard = reports.map(report => [
+      {
+        text: `${report.lastname} ${report.firstname} - ${this.formatDateShort(report.date)}`,
+        callback_data: `admin_logs_report_${report.id}`,
+      },
+    ]);
+    
+    await ctx.editMessageText('Выберите отчет для просмотра истории изменений:', {
+      reply_markup: {
+        inline_keyboard: keyboard,
+      },
+    });
+  }
+
+  /**
+   * Показывает историю изменений отчета
+   */
+  static async showReportLogs(ctx: Context, reportId: string) {
+    const report = await getReportById(reportId);
+    if (!report) {
+      await ctx.reply('❌ Отчет не найден');
+      return;
+    }
+    
+    const logs = await getLogsByReport(reportId);
+    
+    if (logs.length === 0) {
+      await ctx.reply('📝 История изменений пуста. Этот отчет еще не редактировался.');
+      return;
+    }
+    
+    // Фильтруем только логи редактирования полей
+    const editLogs = logs.filter(log => log.action_type === 'field_edited');
+    
+    if (editLogs.length === 0) {
+      await ctx.reply('📝 Нет записей об редактировании полей этого отчета.');
+      return;
+    }
+    
+    let message = `📝 История изменений отчета:\n`;
+    message += `Сотрудник: ${report.lastname} ${report.firstname}\n`;
+    message += `Дата: ${this.formatDateShort(report.date)}\n\n`;
+    message += `Всего изменений: ${editLogs.length}\n\n`;
+    
+    for (const log of editLogs) {
+      const user = await getUserById(log.user_id);
+      const username = user?.username || `ID: ${user?.telegram_id}` || 'Неизвестный';
+      
+      const fieldLabel = this.getFieldLabel(log.payload_before?.field || '');
+      const oldValue = this.formatFieldValue(log.payload_before?.field, log.payload_before?.old_value);
+      const newValue = this.formatFieldValue(log.payload_before?.field, log.payload_before?.new_value);
+      
+      const timestamp = new Date(log.timestamp);
+      const formattedDate = timestamp.toLocaleString('ru-RU', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      
+      message += `🕐 ${formattedDate}\n`;
+      message += `👤 ${username}\n`;
+      message += `📝 ${fieldLabel}:\n`;
+      message += `   Было: ${oldValue}\n`;
+      message += `   Стало: ${newValue}\n\n`;
+    }
+    
+    // Разбиваем сообщение на части, если оно слишком длинное
+    const maxLength = 4000; // Telegram ограничение
+    if (message.length > maxLength) {
+      const parts = [];
+      let currentPart = message.split('\n\n')[0] + '\n\n';
+      
+      for (let i = 1; i < message.split('\n\n').length; i++) {
+        const block = message.split('\n\n')[i];
+        if ((currentPart + block + '\n\n').length > maxLength) {
+          parts.push(currentPart);
+          currentPart = block + '\n\n';
+        } else {
+          currentPart += block + '\n\n';
+        }
+      }
+      parts.push(currentPart);
+      
+      for (const part of parts) {
+        await ctx.reply(part);
+      }
+    } else {
+      await ctx.reply(message);
+    }
+  }
+
+  /**
    * Получает текстовое представление статуса
    */
   private static getStatusText(status: string): string {
@@ -195,6 +330,49 @@ export class AdminPanel {
       completed: 'Завершено',
     };
     return statusMap[status] || status;
+  }
+
+  /**
+   * Форматирует дату из YYYY-MM-DD в DD.MM.YYYY
+   */
+  private static formatDateShort(dateString: string): string {
+    const [year, month, day] = dateString.split('-');
+    return `${day}.${month}.${year}`;
+  }
+
+  /**
+   * Получает читаемое название поля
+   */
+  private static getFieldLabel(fieldKey: string): string {
+    const labels: Record<string, string> = {
+      lastname: 'Фамилия',
+      firstname: 'Имя',
+      qr_number: '№ QR',
+      qr_amount: 'Сумма по QR',
+      cash_amount: 'Сумма наличных',
+      terminal_amount: 'Сумма по терминалу',
+      comment: 'Комментарий',
+      bonus_penalty: 'Бонус/штраф',
+    };
+    return labels[fieldKey] || fieldKey;
+  }
+
+  /**
+   * Форматирует значение поля для отображения
+   */
+  private static formatFieldValue(fieldKey: string, value: any): string {
+    if (value === null || value === undefined || value === '') {
+      return '<пусто>';
+    }
+    
+    // Для денежных полей используем форматирование
+    if (fieldKey === 'qr_amount' || fieldKey === 'cash_amount' || fieldKey === 'terminal_amount' || fieldKey === 'bonus_penalty') {
+      return typeof value === 'number' 
+        ? CalculationService.formatAmount(value)
+        : String(value);
+    }
+    
+    return String(value);
   }
 }
 

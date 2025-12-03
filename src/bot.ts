@@ -359,6 +359,28 @@ bot.action(/^select_report_(.+)$/, async (ctx) => {
   await EditFlow.startEditingReport(ctx, user.id, reportId, mode);
 });
 
+// Обработка выбора поля для редактирования
+bot.action(/^edit_field_(.+)_(.+)$/, async (ctx) => {
+  const user = (ctx as any).user;
+  const fieldKey = ctx.match[1];
+  const reportId = ctx.match[2];
+  await EditFlow.handleFieldSelection(ctx, user.id, reportId, fieldKey);
+});
+
+// Обработка завершения редактирования
+bot.action(/^finish_editing_(.+)$/, async (ctx) => {
+  const user = (ctx as any).user;
+  const reportId = ctx.match[1];
+  await EditFlow.finishEditing(ctx, user.id, reportId);
+});
+
+// Обработка просмотра истории изменений при редактировании
+bot.action(/^view_logs_(.+)$/, async (ctx) => {
+  const user = (ctx as any).user;
+  const reportId = ctx.match[1];
+  await EditFlow.showReportLogs(ctx, user.id, reportId);
+});
+
 // Обработка выбора площадки для начисления бонуса/штрафа
 bot.action(/^bonus_site_(.+)$/, async (ctx) => {
   const user = (ctx as any).user;
@@ -425,12 +447,39 @@ bot.action(/^user_pdf_site_(.+)$/, async (ctx) => {
 
 bot.action('admin_add_admin', async (ctx) => {
   const user = (ctx as any).user;
-  await AdminPanel.handleAddAdmin(ctx, user.id);
+  console.log('[BOT] admin_add_admin action, user:', user.id);
+  
+  // Проверяем права до создания сессии
+  const currentUser = await getUserById(user.id);
+  if (!currentUser || currentUser.role !== 'superadmin') {
+    await ctx.reply('❌ Только супер-админ может добавлять админов');
+    return;
+  }
+  
+  await ctx.reply('Введите Telegram ID пользователя, которого нужно сделать админом:');
+  
   // Сохраняем состояние для ввода Telegram ID
   const session = await getSession(user.id);
-  if (session) {
-    await createOrUpdateSession(user.id, 'admin_add_admin', { ...session.context, waiting_for_admin_id: true });
-  }
+  console.log('[BOT] Creating session for admin_add_admin, existing session:', !!session);
+  await createOrUpdateSession(user.id, 'admin_add_admin', { 
+    ...(session?.context || {}), 
+    waiting_for_admin_id: true 
+  });
+  console.log('[BOT] Session created, waiting for admin ID input');
+});
+
+bot.action('admin_view_logs', async (ctx) => {
+  await AdminPanel.handleViewLogs(ctx);
+});
+
+bot.action(/^admin_logs_site_(.+)$/, async (ctx) => {
+  const siteId = ctx.match[1];
+  await AdminPanel.handleSiteLogsSelection(ctx, siteId);
+});
+
+bot.action(/^admin_logs_report_(.+)$/, async (ctx) => {
+  const reportId = ctx.match[1];
+  await AdminPanel.showReportLogs(ctx, reportId);
 });
 
 // Обработка текстовых сообщений в зависимости от состояния
@@ -483,19 +532,23 @@ bot.on('text', async (ctx) => {
   }
   // Обработка добавления админа
   else if (session.state === 'admin_add_admin' && session.context.waiting_for_admin_id) {
+    console.log('[BOT] Processing admin_add_admin, text:', text);
     const adminTelegramId = parseInt(text.trim());
     if (isNaN(adminTelegramId)) {
       await ctx.reply('❌ Пожалуйста, введите корректный Telegram ID (число)');
       return;
     }
     
+    console.log('[BOT] Parsed Telegram ID:', adminTelegramId);
     const targetUser = await getUserByTelegramId(adminTelegramId);
     if (!targetUser) {
+      console.log('[BOT] User not found for Telegram ID:', adminTelegramId);
       await ctx.reply('❌ Пользователь с таким Telegram ID не найден');
       await clearSession(user.id);
       return;
     }
     
+    console.log('[BOT] Found user:', targetUser.id, 'Calling addAdmin...');
     await AdminPanel.addAdmin(ctx, targetUser.id, user.id);
     await clearSession(user.id);
   }

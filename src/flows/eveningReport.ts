@@ -21,13 +21,14 @@ import { CalculationService } from '../services/CalculationService';
 import { getFlowKeyboard, getConfirmKeyboard, getMainKeyboard } from '../utils/keyboards';
 import { calculateBonusByTargets } from '../utils/bonusTarget';
 import { AdminPanel } from '../admin/adminPanel';
+import { getMoscowDate } from '../utils/dateTime';
 
 export class EveningReportFlow {
   /**
    * Начинает процесс вечернего отчета
    */
   static async start(ctx: Context, userId: string) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
@@ -95,7 +96,7 @@ export class EveningReportFlow {
    * Обрабатывает выбор площадки
    */
   static async handleSiteSelection(ctx: Context, userId: string, siteId: string) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     
     // Проверяем, есть ли уже отчёты для этой площадки
     const existingReports = await getReportsBySite(siteId, today);
@@ -283,7 +284,8 @@ export class EveningReportFlow {
       reportData.cash_amount,
       bonusByTargets,
       reportData.bonus_penalty || 0,
-      0 // responsible_salary_bonus = 0, так как начисляется отдельно
+      0, // responsible_salary_bonus = 0, так как начисляется отдельно
+      0  // best_revenue_bonus = 0, так как начисляется при генерации PDF
     );
     
     // Формируем сводку данных для подтверждения
@@ -323,7 +325,7 @@ export class EveningReportFlow {
       return;
     }
     
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     
     // Выполняем расчеты
     const calculations = CalculationService.calculate({
@@ -344,7 +346,8 @@ export class EveningReportFlow {
       reportData.cash_amount,
       bonusByTargets,
       reportData.bonus_penalty || 0,
-      0 // responsible_salary_bonus = 0, так как начисляется отдельно
+      0, // responsible_salary_bonus = 0, так как начисляется отдельно
+      0  // best_revenue_bonus = 0, так как начисляется при генерации PDF
     );
     
     // Создаем отчет (подписи не заполняются, остаются null)
@@ -434,7 +437,8 @@ export class EveningReportFlow {
             reportData.cash_amount,
             bonusByTargets,
             reportData.bonus_penalty || 0,
-            0 // responsible_salary_bonus = 0, так как начисляется отдельно
+            0, // responsible_salary_bonus = 0, так как начисляется отдельно
+            0  // best_revenue_bonus = 0, так как начисляется при генерации PDF
           );
           
           const summary = 

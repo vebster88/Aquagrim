@@ -18,13 +18,14 @@ import {
 import { CalculationService } from '../services/CalculationService';
 import { getFlowKeyboard, getMainKeyboard } from '../utils/keyboards';
 import { AdminPanel } from '../admin/adminPanel';
+import { getMoscowDate } from '../utils/dateTime';
 
 export class BonusPenaltyFlow {
   /**
    * Начинает процесс начисления бонуса/штрафа
    */
   static async start(ctx: Context, userId: string) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
@@ -67,7 +68,7 @@ export class BonusPenaltyFlow {
    * Выбирает площадку и показывает список сотрудников
    */
   static async selectSite(ctx: Context, userId: string, siteId: string) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     const reports = await getReportsBySite(siteId, today);
     
     if (reports.length === 0) {
@@ -265,7 +266,8 @@ export class BonusPenaltyFlow {
         report.cash_amount,
         report.bonus_by_targets || 0,
         report.bonus_penalty || 0,
-        amount // responsible_salary_bonus
+        amount, // responsible_salary_bonus
+        report.best_revenue_bonus || 0
       );
       
       await updateReport({
@@ -297,7 +299,8 @@ export class BonusPenaltyFlow {
         report.cash_amount,
         report.bonus_by_targets || 0,
         newBonusPenalty,
-        report.responsible_salary_bonus || 0
+        report.responsible_salary_bonus || 0,
+        report.best_revenue_bonus || 0
       );
       
       // Обновляем отчет

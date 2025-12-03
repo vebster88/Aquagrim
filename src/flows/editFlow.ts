@@ -21,6 +21,7 @@ import { CalculationService } from '../services/CalculationService';
 import { getFlowKeyboard } from '../utils/keyboards';
 import { AdminPanel } from '../admin/adminPanel';
 import { getMoscowDate } from '../utils/dateTime';
+import { calculateBonusByTargets } from '../utils/bonusTarget';
 
 export class EditFlow {
   /**
@@ -693,17 +694,29 @@ export class EditFlow {
       bonus_penalty: report.bonus_penalty,
     });
     
+    // Получаем площадку для пересчета бонусов по планкам
+    const site = await getSiteById(report.site_id);
+    if (!site) {
+      await ctx.reply('❌ Ошибка: площадка не найдена');
+      return;
+    }
+    
+    // Пересчитываем бонусы по планкам с учетом новой выручки
+    const bonusByTargets = calculateBonusByTargets(calculations.total_revenue, site.bonus_target);
+    
     // Пересчитываем "Нал в конверте" с учетом всех бонусов/штрафов
     const cash_in_envelope = CalculationService.calculateCashInEnvelope(
       report.cash_amount,
-      report.bonus_by_targets || 0,
+      bonusByTargets, // Используем пересчитанное значение
       report.bonus_penalty || 0,
-      report.responsible_salary_bonus || 0
+      report.responsible_salary_bonus || 0,
+      report.best_revenue_bonus || 0
     );
     
     const updatedReport = {
       ...report,
       ...calculations,
+      bonus_by_targets: bonusByTargets, // Обновляем бонусы по планкам
       cash_in_envelope, // Используем пересчитанное значение
     };
     

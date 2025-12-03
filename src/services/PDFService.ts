@@ -625,12 +625,13 @@ export class PDFService {
   /**
    * Начисляет бонус за лучшую выручку (500 рублей) сотруднику с максимальной выручкой
    * Бонус начисляется только если на площадке больше одного сотрудника
-   * @returns true если бонус был начислен, false если нет
+   * Убирает бонус у всех предыдущих лучших сотрудников
+   * @returns ID сотрудника, которому был начислен бонус, или null
    */
-  private static async applyBestRevenueBonus(reports: DailyReport[]): Promise<boolean> {
+  private static async applyBestRevenueBonus(reports: DailyReport[]): Promise<string | null> {
     // Бонус начисляется только если больше одного сотрудника
     if (reports.length <= 1) {
-      return false;
+      return null;
     }
 
     // Находим сотрудника с максимальной выручкой
@@ -645,51 +646,71 @@ export class PDFService {
     }
 
     if (!bestEmployee) {
-      return false;
+      return null;
     }
 
-    // Проверяем, не был ли уже начислен бонус за лучшую выручку
-    // Проверяем по наличию "+ЛВ" в комментарии
-    const hasBestRevenueBonus = bestEmployee.comment && bestEmployee.comment.includes('+ЛВ');
-    
-    if (!hasBestRevenueBonus) {
-      // Добавляем 500 рублей к bonus_penalty
-      const currentBonus = bestEmployee.bonus_penalty || 0;
-      const newBonusPenalty = currentBonus + 500;
+    // Сначала убираем бонус у всех сотрудников, у которых он был начислен ранее
+    for (const report of reports) {
+      if (report.best_revenue_bonus && report.best_revenue_bonus > 0) {
+        // Убираем бонус за лучшую выручку
+        const oldBestRevenueBonus = report.best_revenue_bonus || 0;
+        const newBestRevenueBonus = 0;
 
-      // Добавляем "+ЛВ" к комментарию
-      const newComment = bestEmployee.comment 
-        ? `${bestEmployee.comment} +ЛВ`
-        : '+ЛВ';
+        // Пересчитываем cash_in_envelope без бонуса за лучшую выручку
+        const cash_in_envelope = CalculationService.calculateCashInEnvelope(
+          report.cash_amount,
+          report.bonus_by_targets || 0,
+          report.bonus_penalty || 0,
+          report.responsible_salary_bonus || 0,
+          newBestRevenueBonus
+        );
 
-      // Пересчитываем значения с учетом нового бонуса
-      const calculations = CalculationService.calculate({
-        qr_amount: bestEmployee.qr_amount,
-        cash_amount: bestEmployee.cash_amount,
-        terminal_amount: bestEmployee.terminal_amount || 0,
-        bonus_penalty: newBonusPenalty,
-      });
+        const updatedReport = {
+          ...report,
+          best_revenue_bonus: newBestRevenueBonus,
+          cash_in_envelope,
+        };
 
-      const updatedReport = {
-        ...bestEmployee,
-        bonus_penalty: newBonusPenalty,
-        comment: newComment,
-        ...calculations,
-      };
-
-      await updateReport(updatedReport);
-      
-      // Обновляем объект в массиве reports, чтобы использовать актуальные данные
-      const index = reports.findIndex(r => r.id === bestEmployee!.id);
-      if (index !== -1) {
-        reports[index] = updatedReport;
+        await updateReport(updatedReport);
+        
+        // Обновляем объект в массиве reports
+        const index = reports.findIndex(r => r.id === report.id);
+        if (index !== -1) {
+          reports[index] = updatedReport;
+        }
+        
+        console.log(`[PDFService] Removed best revenue bonus (${oldBestRevenueBonus} ₽) from ${report.lastname} ${report.firstname}`);
       }
-      
-      console.log(`[PDFService] Applied best revenue bonus (500 ₽) to ${bestEmployee.lastname} ${bestEmployee.firstname} (revenue: ${updatedReport.total_revenue} ₽, bonus_penalty: ${updatedReport.bonus_penalty} ₽)`);
-      return true;
+    }
+
+    // Теперь начисляем бонус текущему лучшему сотруднику
+    const bestRevenueBonus = 500;
+
+    // Пересчитываем cash_in_envelope с учетом нового бонуса
+    const cash_in_envelope = CalculationService.calculateCashInEnvelope(
+      bestEmployee.cash_amount,
+      bestEmployee.bonus_by_targets || 0,
+      bestEmployee.bonus_penalty || 0,
+      bestEmployee.responsible_salary_bonus || 0,
+      bestRevenueBonus
+    );
+
+    const updatedReport = {
+      ...bestEmployee,
+      best_revenue_bonus: bestRevenueBonus,
+      cash_in_envelope,
+    };
+
+    await updateReport(updatedReport);
+    
+    // Обновляем объект в массиве reports, чтобы использовать актуальные данные
+    const index = reports.findIndex(r => r.id === bestEmployee!.id);
+    if (index !== -1) {
+      reports[index] = updatedReport;
     }
     
-    return false;
+    console.log(`[PDFService] Applied best revenue bonus (${bestRevenueBonus} ₽) to ${bestEmployee.lastname} ${bestEmployee.firstname} (revenue: ${bestEmployee.total_revenue} ₽)`);
+    return bestEmployee.id;
   }
 
   /**
@@ -702,17 +723,17 @@ export class PDFService {
     console.log(`Starting site summary PDF generation for site ${site.id} (${site.name}), reports count: ${reports.length}`);
 
     // Начисляем бонус за лучшую выручку перед генерацией PDF
-    const bonusApplied = await this.applyBestRevenueBonus(reports);
+    const bestEmployeeId = await this.applyBestRevenueBonus(reports);
     
     // Если бонус был начислен, перечитываем отчеты из БД для гарантии актуальности данных
-    if (bonusApplied) {
+    if (bestEmployeeId) {
       const updatedReports = await getReportsBySite(site.id, site.date);
       // Заменяем старые отчеты на обновленные
       reports.length = 0;
       reports.push(...updatedReports);
-      console.log(`[PDFService] Reloaded reports from DB after applying best revenue bonus`);
+      console.log(`[PDFService] Reloaded reports from DB after applying best revenue bonus to employee ${bestEmployeeId}`);
     }
-
+    
     let printer: PdfPrinter;
     try {
       printer = await this.createPrinter();
@@ -733,10 +754,11 @@ export class PDFService {
         acc.terminal_amount += r.terminal_amount || 0;
         acc.total_revenue += r.total_revenue;
         acc.salary += r.salary;
-        // Суммируем бонусы/штрафы (из столбца PDF: bonus_by_targets + bonus_penalty, без responsibleBonus)
+        // Суммируем бонусы/штрафы (из столбца PDF: bonus_by_targets + bonus_penalty + best_revenue_bonus, без responsibleBonus)
         const bonusByTargets = r.bonus_by_targets || 0;
         const manualBonusPenalty = r.bonus_penalty || 0;
-        acc.total_bonuses_penalties += bonusByTargets + manualBonusPenalty;
+        const bestRevenueBonus = r.best_revenue_bonus || 0;
+        acc.total_bonuses_penalties += bonusByTargets + manualBonusPenalty + bestRevenueBonus;
         return acc;
       },
       {
@@ -821,6 +843,18 @@ export class PDFService {
       },
     ];
 
+    // Находим текущего лучшего сотрудника для отображения "+ЛВ" в комментарии
+    let currentBestEmployeeId: string | null = null;
+    if (reports.length > 1) {
+      let maxRevenue = -1;
+      for (const report of reports) {
+        if (report.total_revenue > maxRevenue) {
+          maxRevenue = report.total_revenue;
+          currentBestEmployeeId = report.id;
+        }
+      }
+    }
+
     // Таблица с сотрудниками
     const tableBody: any[] = [];
     tableBody.push([
@@ -848,10 +882,11 @@ export class PDFService {
         : `${r.lastname} ${r.firstname}`;
 
       // Рассчитываем общие бонусы/штрафы:
-      // бонусы по планкам + ручные бонусы/штрафы (включая бонус за лучшую выручку +ЛВ)
+      // бонусы по планкам + ручные бонусы/штрафы + бонус за лучшую выручку
       const bonusByTargets = r.bonus_by_targets || 0;
-      const manualBonusPenalty = r.bonus_penalty || 0; // Включает бонус за лучшую выручку (500 ₽)
-      const totalBonusPenalty = bonusByTargets + manualBonusPenalty;
+      const manualBonusPenalty = r.bonus_penalty || 0;
+      const bestRevenueBonus = r.best_revenue_bonus || 0;
+      const totalBonusPenalty = bonusByTargets + manualBonusPenalty + bestRevenueBonus;
       
       // Форматируем с учетом знака (целое число)
       const bonusPenaltyText = totalBonusPenalty > 0 
@@ -882,7 +917,18 @@ export class PDFService {
           fontSize: 11 
         },
         { text: signatureText, alignment: 'left', fontSize: 11 },
-        { text: r.comment || '', alignment: 'left', fontSize: 11 },
+        { 
+          text: (() => {
+            // Добавляем "+ЛВ" только при отображении в PDF для лучшего сотрудника
+            const baseComment = r.comment || '';
+            if (currentBestEmployeeId === r.id) {
+              return baseComment ? `${baseComment} +ЛВ` : '+ЛВ';
+            }
+            return baseComment;
+          })(), 
+          alignment: 'left', 
+          fontSize: 11 
+        },
       ]);
     }
 

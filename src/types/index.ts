@@ -86,6 +86,7 @@ export interface DailyReport {
   salary: number; // в рублях (20% от выручки)
   bonus_by_targets?: number; // в рублях, бонусы по достижению планок (+500 за каждую)
   bonus_penalty?: number; // в рублях, ручное поле для дополнительных бонусов/штрафов
+  best_revenue_bonus?: number; // в рублях, бонус за лучшую выручку (500 ₽, начисляется автоматически при генерации PDF)
   responsible_salary: number; // в рублях
   responsible_salary_bonus?: number; // в рублях, ЗП ответственного (начисляется вручную через "Начислить бонус/штраф")
   total_daily: number; // в рублях (оборот)

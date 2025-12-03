@@ -57,15 +57,16 @@ export class CalculationService {
 
   /**
    * Рассчитывает "Нал в конверте" с учетом всех бонусов и штрафов
-   * Формула: cash_amount - (bonus_by_targets + bonus_penalty + responsible_salary_bonus)
+   * Формула: cash_amount - (bonus_by_targets + bonus_penalty + best_revenue_bonus + responsible_salary_bonus)
    */
   static calculateCashInEnvelope(
     cash_amount: number,
     bonus_by_targets: number = 0,
     bonus_penalty: number = 0,
-    responsible_salary_bonus: number = 0
+    responsible_salary_bonus: number = 0,
+    best_revenue_bonus: number = 0
   ): number {
-    const totalBonusesPenalties = bonus_by_targets + bonus_penalty + responsible_salary_bonus;
+    const totalBonusesPenalties = bonus_by_targets + bonus_penalty + best_revenue_bonus + responsible_salary_bonus;
     return Math.round(cash_amount - totalBonusesPenalties);
   }
   

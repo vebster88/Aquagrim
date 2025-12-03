@@ -19,8 +19,17 @@ import { EditContext, DialogState } from '../types';
 import { CalculationService } from '../services/CalculationService';
 import { getFlowKeyboard } from '../utils/keyboards';
 import { AdminPanel } from '../admin/adminPanel';
+import { getMoscowDate } from '../utils/dateTime';
 
 export class EditFlow {
+  /**
+   * Форматирует дату из YYYY-MM-DD в DD.MM.YYYY
+   */
+  private static formatDateShort(dateString: string): string {
+    const [year, month, day] = dateString.split('-');
+    return `${day}.${month}.${year}`;
+  }
+
   /**
    * Начинает процесс редактирования
    */
@@ -41,7 +50,7 @@ export class EditFlow {
   static async handleByLastname(ctx: Context, userId: string) {
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     
     // Получаем площадки пользователя
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
@@ -69,12 +78,16 @@ export class EditFlow {
       return;
     }
     
-    // Получаем уникальные фамилии
-    const uniqueLastnames = [...new Set(allReports.map(r => r.lastname))].sort();
+    // Получаем уникальные сочетания "Фамилия Имя", чтобы отсечь однофамильцев
+    const uniqueNames = [...new Set(allReports.map(r => `${r.lastname} ${r.firstname}`))].sort();
     
-    // Формируем клавиатуру с фамилиями
-    const keyboard = uniqueLastnames.map(lastname => [
-      { text: lastname, callback_data: `edit_lastname_${lastname}` },
+    // Формируем клавиатуру с фамилией и именем
+    // В callback_data передаем полное имя, пробелы заменяем на подчеркивания
+    const keyboard = uniqueNames.map(fullName => [
+      {
+        text: fullName,
+        callback_data: `edit_lastname_${fullName.replace(/\s+/g, '_')}`,
+      },
     ]);
     
     await ctx.reply('Выберите фамилию сотрудника:', {
@@ -86,20 +99,28 @@ export class EditFlow {
   
   /**
    * Обрабатывает выбор фамилии для редактирования
+   * @param fullName - полное имя в формате "Фамилия Имя" (может быть передано с подчеркиванием)
    */
-  static async handleLastnameSelection(ctx: Context, userId: string, lastname: string) {
+  static async handleLastnameSelection(ctx: Context, userId: string, fullName: string) {
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
+    
+    // Восстанавливаем пробелы из callback_data и разбираем Фамилию/Имя
+    const normalizedName = fullName.replace(/_/g, ' ');
+    const [lastname, firstname] = normalizedName.split(' ').filter(Boolean);
     
     // Получаем площадки пользователя
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
     
-    // Получаем все отчеты с этой фамилией по площадкам пользователя
+    // Получаем все отчеты с этой фамилией и именем по площадкам пользователя
     const allReports: any[] = [];
     for (const site of sites) {
       const siteReports = await getReportsBySite(site.id, site.date);
-      const filteredReports = siteReports.filter(r => r.lastname.toLowerCase() === lastname.toLowerCase());
+      const filteredReports = siteReports.filter(r =>
+        r.lastname.toLowerCase() === lastname.toLowerCase() &&
+        (!firstname || r.firstname.toLowerCase() === firstname.toLowerCase())
+      );
       allReports.push(...filteredReports);
     }
     
@@ -115,13 +136,21 @@ export class EditFlow {
       return;
     }
     
-    // Если несколько, показываем список для выбора
-    const keyboard = allReports.map((report) => [
-      {
-        text: `${report.lastname} ${report.firstname} - ${report.date}`,
-        callback_data: `select_report_${report.id}`,
-      },
-    ]);
+    // Если несколько, показываем список для выбора:
+    // "Фамилия Имя - Название площадки - 03.12.2025"
+    const keyboard = await Promise.all(
+      allReports.map(async (report) => {
+        const site = await getSiteById(report.site_id);
+        const siteName = site?.name || 'неизвестная площадка';
+        const formattedDate = this.formatDateShort(report.date);
+        return [
+          {
+            text: `${report.lastname} ${report.firstname} - ${siteName} - ${formattedDate}`,
+            callback_data: `select_report_${report.id}`,
+          },
+        ];
+      })
+    );
     
     await ctx.reply('Выберите отчет для редактирования:', {
       reply_markup: {
@@ -135,7 +164,7 @@ export class EditFlow {
    * Обрабатывает выбор режима "по площадке"
    */
   static async handleBySite(ctx: Context, userId: string) {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     const sites = await getSitesByDateForUser(today, userId, isAdmin);
@@ -151,7 +180,10 @@ export class EditFlow {
     }
     
     const keyboard = sites.map(site => [
-      { text: `${site.name} - ${site.date}`, callback_data: `select_site_edit_${site.id}` },
+      {
+        text: `${site.name} - ${this.formatDateShort(site.date)}`,
+        callback_data: `select_site_edit_${site.id}`,
+      },
     ]);
     
     await ctx.reply('Выберите площадку:', {
@@ -168,9 +200,12 @@ export class EditFlow {
     const user = await getUserById(userId);
     const isAdmin = user ? AdminPanel.isAdmin(user) : false;
     
+    // Получаем площадку (для проверки доступа и отображения названия)
+    const site = await getSiteById(siteId);
+    const siteName = site?.name || 'неизвестная площадка';
+    
     // Проверяем доступ: для не-админов разрешаем редактирование только своего объекта
     if (!isAdmin) {
-      const site = await getSiteById(siteId);
       if (!site || site.responsible_user_id !== userId) {
         await ctx.editMessageText('❌ У вас нет доступа к редактированию этой площадки');
         await clearSession(userId);
@@ -178,7 +213,7 @@ export class EditFlow {
       }
     }
     
-    const today = new Date().toISOString().split('T')[0];
+    const today = getMoscowDate();
     const reports = await getReportsBySite(siteId, today);
     
     if (reports.length === 0) {
@@ -194,7 +229,7 @@ export class EditFlow {
     
     const keyboard = reports.map(report => [
       {
-        text: `${report.lastname} ${report.firstname} - ${report.date}`,
+        text: `${report.lastname} ${report.firstname} - ${siteName} - ${this.formatDateShort(report.date)}`,
         callback_data: `select_report_${report.id}`,
       },
     ]);
@@ -331,10 +366,10 @@ export class EditFlow {
       const displayValue = nextField.isAmount
         ? typeof rawValue === 'number'
           ? CalculationService.formatAmount(rawValue as number)
-          : 'Значения нет❗'
+          : '<i>Значения нет</i>❗'
         : hasValue
         ? String(rawValue)
-        : 'Значения нет❗';
+        : '<i>Значения нет</i>❗';
 
       await ctx.reply(
         `Текущее значение ${nextField.label}: ${displayValue}\n` +

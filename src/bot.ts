@@ -325,7 +325,8 @@ bot.action('cancel_cancel', async (ctx) => {
 });
 
 // Обработка выбора площадки для вечернего отчета
-bot.action(/^select_site_(.+)$/, async (ctx) => {
+// Обработка выбора площадки для вечернего отчета (не должен перехватывать select_site_edit_)
+bot.action(/^select_site_(?!edit_)(.+)$/, async (ctx) => {
   const user = (ctx as any).user;
   const siteId = ctx.match[1];
   await EveningReportFlow.handleSiteSelection(ctx, user.id, siteId);
@@ -335,6 +336,11 @@ bot.action(/^select_site_(.+)$/, async (ctx) => {
 bot.action(/^select_site_edit_(.+)$/, async (ctx) => {
   const user = (ctx as any).user;
   const siteId = ctx.match[1];
+  console.log('[bot.ts] select_site_edit callback:', {
+    callbackData: ctx.callbackQuery?.data,
+    extractedSiteId: siteId,
+    matchGroups: ctx.match,
+  });
   await EditFlow.handleSiteSelection(ctx, user.id, siteId);
 });
 

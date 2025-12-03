@@ -177,9 +177,15 @@ export class EditFlow {
       return;
     }
     
-    const keyboard = sites.map(site => [
-      { text: `${site.name} - ${site.date}`, callback_data: `select_site_edit_${site.id}` },
-    ]);
+    const keyboard = sites.map(site => {
+      const callbackData = `select_site_edit_${site.id}`;
+      console.log('[EditFlow.handleBySite] Creating keyboard button:', {
+        siteId: site.id,
+        siteName: site.name,
+        callbackData,
+      });
+      return [{ text: `${site.name} - ${site.date}`, callback_data: callbackData }];
+    });
     
     await ctx.reply('Выберите площадку:', {
       reply_markup: {

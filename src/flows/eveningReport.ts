@@ -418,7 +418,7 @@ export class EveningReportFlow {
     const bonusByTargets = calculateBonusByTargets(calculations.total_revenue, site.bonus_target);
     
     const isResponsible = reportData.is_responsible === true;
-    const responsibleNote = isResponsible ? '\n⭐ Ответственный (ЗП начисляется вручную)\n' : '';
+    const responsibleNote = isResponsible ? '\n⭐ Ответственный (ЗП начисляется вручную)' : '';
     
     const cash_in_envelope = CalculationService.calculateCashInEnvelope(
       reportData.cash_amount,
@@ -429,7 +429,7 @@ export class EveningReportFlow {
     );
     
     const summary = 
-      `📋 Проверьте введенные данные:${responsibleNote}\n` +
+      `📋 Проверьте введенные данные:${responsibleNote}\n\n` +
       `🏢 Площадка: ${site.name}\n` +
       `👤 Сотрудник: ${reportData.lastname} ${reportData.firstname}\n` +
       `📱 № QR: ${reportData.qr_number}\n` +

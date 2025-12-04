@@ -899,8 +899,8 @@ export class PDFService {
       // 3. В остальных случаях - обычное отображение с знаком
       let bonusPenaltyText: string;
       if (bonuses === 0 && penalty === 0) {
-        // Нет ни бонусов, ни штрафов - пустая строка
-        bonusPenaltyText = '';
+        // Нет ни бонусов, ни штрафов - прочерк
+        bonusPenaltyText = '-';
       } else if (penalty > 0 && penalty === bonuses) {
         // Штраф равен бонусам - показываем 0
         bonusPenaltyText = this.formatAmountInteger(0);

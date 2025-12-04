@@ -44,10 +44,7 @@ export class AdminPanel {
     ];
     
     if (user.role === 'superadmin') {
-      keyboard.push(
-        [{ text: '➕ Добавить админа', callback_data: 'admin_add_admin' }],
-        [{ text: '➖ Убрать админа', callback_data: 'admin_remove_admin' }]
-      );
+      keyboard.push([{ text: '➕ Добавить админа', callback_data: 'admin_add_admin' }]);
     }
     
     await ctx.reply('Админ-панель:', {
@@ -160,7 +157,7 @@ export class AdminPanel {
       return;
     }
     
-    await ctx.reply('Введите Telegram ID или username (например: 123456789 или @username) пользователя, которого нужно сделать админом:');
+    await ctx.reply('Введите Telegram ID пользователя, которого нужно сделать админом:');
     // Состояние будет обработано в основном боте
   }
   
@@ -189,53 +186,6 @@ export class AdminPanel {
     await createLog(superadminId, 'admin_added', { user_id: adminUserId, old_role: targetUser.role }, { user_id: adminUserId, new_role: 'admin' });
     
     await ctx.reply(`✅ Пользователь ${targetUser.username || targetUser.telegram_id} теперь админ`);
-  }
-  
-  /**
-   * Обрабатывает удаление админа (только для superadmin)
-   */
-  static async handleRemoveAdmin(ctx: Context, userId: string) {
-    const user = await getUserById(userId);
-    if (!user || user.role !== 'superadmin') {
-      await ctx.reply('❌ Только супер-админ может убирать роли админов');
-      return;
-    }
-    
-    await ctx.reply('Введите Telegram ID или username (например: 123456789 или @username) пользователя, у которого нужно убрать роль админа:');
-    // Состояние будет обработано в основном боте
-  }
-  
-  /**
-   * Убирает роль админа по Telegram ID
-   */
-  static async removeAdmin(ctx: Context, adminUserId: string, superadminId: string) {
-    const superadmin = await getUserById(superadminId);
-    if (!superadmin || superadmin.role !== 'superadmin') {
-      await ctx.reply('❌ Только супер-админ может убирать роли админов');
-      return;
-    }
-    
-    const targetUser = await getUserById(adminUserId);
-    if (!targetUser) {
-      await ctx.reply('❌ Пользователь не найден');
-      return;
-    }
-    
-    if (targetUser.role === 'user') {
-      await ctx.reply('Пользователь уже является обычным пользователем');
-      return;
-    }
-    
-    if (targetUser.role === 'superadmin') {
-      await ctx.reply('❌ Нельзя убрать роль у супер-админа');
-      return;
-    }
-    
-    const oldRole = targetUser.role;
-    await updateUser({ ...targetUser, role: 'user' });
-    await createLog(superadminId, 'admin_removed', { user_id: adminUserId, old_role: oldRole }, { user_id: adminUserId, new_role: 'user' });
-    
-    await ctx.reply(`✅ Роль админа убрана у пользователя ${targetUser.username || targetUser.telegram_id}. Теперь он обычный пользователь`);
   }
   
   /**

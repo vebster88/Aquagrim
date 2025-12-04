@@ -483,34 +483,23 @@ bot.action('admin_add_admin', async (ctx) => {
   const user = (ctx as any).user;
   console.log('[BOT] admin_add_admin action, user:', user.id);
   
-  // Используем функцию из AdminPanel для обработки
-  await AdminPanel.handleAddAdmin(ctx, user.id);
+  // Проверяем права до создания сессии
+  const currentUser = await getUserById(user.id);
+  if (!currentUser || currentUser.role !== 'superadmin') {
+    await ctx.reply('❌ Только супер-админ может добавлять админов');
+    return;
+  }
   
-  // Сохраняем состояние для ввода Telegram ID или username
+  await ctx.reply('Введите Telegram ID пользователя, которого нужно сделать админом:');
+  
+  // Сохраняем состояние для ввода Telegram ID
   const session = await getSession(user.id);
   console.log('[BOT] Creating session for admin_add_admin, existing session:', !!session);
   await createOrUpdateSession(user.id, 'admin_add_admin', { 
     ...(session?.context || {}), 
     waiting_for_admin_id: true 
   });
-  console.log('[BOT] Session created, waiting for admin ID/username input');
-});
-
-bot.action('admin_remove_admin', async (ctx) => {
-  const user = (ctx as any).user;
-  console.log('[BOT] admin_remove_admin action, user:', user.id);
-  
-  // Используем функцию из AdminPanel для обработки
-  await AdminPanel.handleRemoveAdmin(ctx, user.id);
-  
-  // Сохраняем состояние для ввода Telegram ID или username
-  const session = await getSession(user.id);
-  console.log('[BOT] Creating session for admin_remove_admin, existing session:', !!session);
-  await createOrUpdateSession(user.id, 'admin_remove_admin', { 
-    ...(session?.context || {}), 
-    waiting_for_admin_id: true 
-  });
-  console.log('[BOT] Session created, waiting for admin ID/username input');
+  console.log('[BOT] Session created, waiting for admin ID input');
 });
 
 bot.action('admin_view_logs', async (ctx) => {
@@ -578,105 +567,23 @@ bot.on('text', async (ctx) => {
   // Обработка добавления админа
   else if (session.state === 'admin_add_admin' && session.context.waiting_for_admin_id) {
     console.log('[BOT] Processing admin_add_admin, text:', text);
-    const input = text.trim();
-    let targetUser = null;
-    
-    // Проверяем, является ли ввод числом (Telegram ID)
-    const telegramId = parseInt(input);
-    if (!isNaN(telegramId)) {
-      // Это Telegram ID
-      console.log('[BOT] Parsed Telegram ID:', telegramId);
-      targetUser = await getUserByTelegramId(telegramId);
-    } else {
-      // Это username (с @ или без)
-      const username = input.startsWith('@') ? input.slice(1) : input;
-      console.log('[BOT] Parsed username:', username);
-      
-      // Пытаемся получить информацию о пользователе через Telegram Bot API
-      try {
-        // Используем getChat для получения информации о пользователе по username
-        const chat = await ctx.telegram.getChat(`@${username}`);
-        if (chat && 'id' in chat) {
-          const telegramUserId = chat.id;
-          targetUser = await getUserByTelegramId(telegramUserId);
-        }
-      } catch (error) {
-        console.log('[BOT] Error getting user by username via API:', error);
-      }
-      
-      // Если не нашли через API, сообщаем об ошибке
-      if (!targetUser) {
-        await ctx.reply('❌ Пользователь с таким username не найден. Убедитесь, что:\n' +
-          '1. Username указан правильно (например: @username или username)\n' +
-          '2. Пользователь есть в базе данных\n\n' +
-          'Альтернатива: введите Telegram ID пользователя (число)');
-        return;
-      }
+    const adminTelegramId = parseInt(text.trim());
+    if (isNaN(adminTelegramId)) {
+      await ctx.reply('❌ Пожалуйста, введите корректный Telegram ID (число)');
+      return;
     }
     
+    console.log('[BOT] Parsed Telegram ID:', adminTelegramId);
+    const targetUser = await getUserByTelegramId(adminTelegramId);
     if (!targetUser) {
-      console.log('[BOT] User not found');
-      await ctx.reply('❌ Пользователь не найден в базе');
+      console.log('[BOT] User not found for Telegram ID:', adminTelegramId);
+      await ctx.reply('❌ Пользователь с таким Telegram ID не найден');
       await clearSession(user.id);
       return;
     }
     
     console.log('[BOT] Found user:', targetUser.id, 'Calling addAdmin...');
     await AdminPanel.addAdmin(ctx, targetUser.id, user.id);
-    await clearSession(user.id);
-  }
-  // Обработка удаления админа
-  else if (session.state === 'admin_remove_admin' && session.context.waiting_for_admin_id) {
-    console.log('[BOT] Processing admin_remove_admin, text:', text);
-    const input = text.trim();
-    let targetUser = null;
-    
-    // Проверяем, является ли ввод числом (Telegram ID)
-    const telegramId = parseInt(input);
-    if (!isNaN(telegramId)) {
-      // Это Telegram ID
-      console.log('[BOT] Parsed Telegram ID:', telegramId);
-      targetUser = await getUserByTelegramId(telegramId);
-    } else {
-      // Это username (с @ или без)
-      const username = input.startsWith('@') ? input.slice(1) : input;
-      console.log('[BOT] Parsed username:', username);
-      
-      // Пытаемся получить информацию о пользователе через Telegram Bot API
-      try {
-        // Используем getChat для получения информации о пользователе по username
-        const chat = await ctx.telegram.getChat(`@${username}`);
-        if (chat && 'id' in chat) {
-          const telegramUserId = chat.id;
-          targetUser = await getUserByTelegramId(telegramUserId);
-        }
-      } catch (error) {
-        console.log('[BOT] Error getting user by username via API:', error);
-        // Если не получилось через API, попробуем найти в базе
-        // Для этого нужно перебрать всех пользователей
-        // Но Vercel KV не поддерживает поиск по значениям напрямую
-        // Поэтому используем альтернативный подход
-      }
-      
-      // Если не нашли через API, сообщаем об ошибке
-      if (!targetUser) {
-        await ctx.reply('❌ Пользователь с таким username не найден. Убедитесь, что:\n' +
-          '1. Username указан правильно (например: @username или username)\n' +
-          '2. Пользователь есть в базе данных\n\n' +
-          'Альтернатива: введите Telegram ID пользователя (число)');
-        return;
-      }
-    }
-    
-    if (!targetUser) {
-      console.log('[BOT] User not found');
-      await ctx.reply('❌ Пользователь не найден в базе');
-      await clearSession(user.id);
-      return;
-    }
-    
-    console.log('[BOT] Found user:', targetUser.id, 'Calling removeAdmin...');
-    await AdminPanel.removeAdmin(ctx, targetUser.id, user.id);
     await clearSession(user.id);
   }
 });

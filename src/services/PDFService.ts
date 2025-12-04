@@ -858,6 +858,7 @@ export class PDFService {
     // Таблица с сотрудниками
     const tableBody: any[] = [];
     tableBody.push([
+      { text: '№ QR', ...this.getBoldStyle(), fontSize: 11 },
       { text: 'Сотрудник', ...this.getBoldStyle(), fontSize: 11 },
       { text: 'Выручка', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'QR', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
@@ -896,6 +897,7 @@ export class PDFService {
         : this.formatAmountInteger(0);
 
       tableBody.push([
+        { text: r.qr_number || '-', fontSize: 11 },
         { text: employeeName, fontSize: 11 },
         { text: this.formatAmountInteger(r.total_revenue), alignment: 'right', fontSize: 11 },
         { text: this.formatAmountInteger(r.qr_amount), alignment: 'right', fontSize: 11 },
@@ -935,7 +937,7 @@ export class PDFService {
     content.push({
       table: {
         headerRows: 1,
-        widths: [80, 60, 50, 65, 63, 61, 55, 78, 'auto', '*'],
+        widths: [50, 80, 60, 50, 65, 63, 61, 55, 78, 'auto', '*'],
         body: tableBody,
       },
       layout: {
@@ -958,6 +960,13 @@ export class PDFService {
       },
       {
         text: [
+          { text: 'Общая выручка: ', ...this.getBoldStyle() },
+          this.formatAmountInteger(totals.total_revenue),
+        ],
+        margin: [0, 0, 0, 5] as [number, number, number, number],
+      },
+      {
+        text: [
           { text: 'Общая сумма по QR: ', ...this.getBoldStyle() },
           this.formatAmountInteger(totals.qr_amount),
         ],
@@ -977,20 +986,13 @@ export class PDFService {
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
       },
-      {
+      /*{
         text: [
-          { text: 'Общая выручка: ', ...this.getBoldStyle() },
-          this.formatAmountInteger(totals.total_revenue),
-        ],
-        margin: [0, 0, 0, 5] as [number, number, number, number],
-      },
-      {
-        text: [
-          { text: 'Общая зарплата: ', ...this.getBoldStyle() },
+         { text: 'Общая зарплата: ', ...this.getBoldStyle() },
           this.formatAmountInteger(totals.salary),
         ],
         margin: [0, 0, 0, 5] as [number, number, number, number],
-      },
+      },*/
       {
         text: [
           { text: 'Нал в конверте: ', ...this.getBoldStyle() },

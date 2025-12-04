@@ -882,19 +882,36 @@ export class PDFService {
         ? `* ${r.lastname} ${r.firstname}`
         : `${r.lastname} ${r.firstname}`;
 
-      // Рассчитываем общие бонусы/штрафы:
-      // бонусы по планкам + ручные бонусы/штрафы + бонус за лучшую выручку
+      // Рассчитываем бонусы и штрафы отдельно:
+      // Бонусы = бонусы по планкам + бонус за лучшую выручку
+      // Штраф = только отрицательный bonus_penalty
       const bonusByTargets = r.bonus_by_targets || 0;
       const manualBonusPenalty = r.bonus_penalty || 0;
       const bestRevenueBonus = r.best_revenue_bonus || 0;
-      const totalBonusPenalty = bonusByTargets + manualBonusPenalty + bestRevenueBonus;
       
-      // Форматируем с учетом знака (целое число)
-      const bonusPenaltyText = totalBonusPenalty > 0 
-        ? `+${this.formatAmountInteger(totalBonusPenalty)}`
-        : totalBonusPenalty < 0
-        ? `-${this.formatAmountInteger(Math.abs(totalBonusPenalty))}`
-        : this.formatAmountInteger(0);
+      const bonuses = bonusByTargets + bestRevenueBonus; // сумма бонусов
+      const penalty = manualBonusPenalty < 0 ? Math.abs(manualBonusPenalty) : 0; // штраф (только отрицательный)
+      const totalBonusPenalty = bonuses + manualBonusPenalty; // итоговая сумма
+      
+      // Форматируем с учетом логики:
+      // 1. Если нет ни бонусов, ни штрафов - пустая строка
+      // 2. Если штраф равен бонусам (компенсируют друг друга) - показываем 0
+      // 3. В остальных случаях - обычное отображение с знаком
+      let bonusPenaltyText: string;
+      if (bonuses === 0 && penalty === 0) {
+        // Нет ни бонусов, ни штрафов - пустая строка
+        bonusPenaltyText = '';
+      } else if (penalty > 0 && penalty === bonuses) {
+        // Штраф равен бонусам - показываем 0
+        bonusPenaltyText = this.formatAmountInteger(0);
+      } else {
+        // Обычное отображение
+        bonusPenaltyText = totalBonusPenalty > 0 
+          ? `+${this.formatAmountInteger(totalBonusPenalty)}`
+          : totalBonusPenalty < 0
+          ? `-${this.formatAmountInteger(Math.abs(totalBonusPenalty))}`
+          : '';
+      }
 
       tableBody.push([
         { text: r.qr_number || '-', fontSize: 11 },

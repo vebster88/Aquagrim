@@ -256,54 +256,13 @@ export class EveningReportFlow {
     
     const siteId = session.context.site_id;
     const reportData = context.report;
-    const site = await getSiteById(siteId);
     
-    if (!site) {
+    const summary = await this.buildConfirmationSummary(siteId, reportData);
+    if (!summary) {
       await ctx.reply('❌ Ошибка: площадка не найдена', getFlowKeyboard());
       await clearSession(userId);
       return;
     }
-    
-    // Выполняем расчеты для предпросмотра
-    const calculations = CalculationService.calculate({
-      qr_amount: reportData.qr_amount,
-      cash_amount: reportData.cash_amount,
-      terminal_amount: reportData.terminal_amount,
-      bonus_target: site.bonus_target,
-    });
-    
-    // Рассчитываем бонусы по планкам
-    const bonusByTargets = calculateBonusByTargets(calculations.total_revenue, site.bonus_target);
-    
-    // Если это ответственный, ЗП начисляется вручную через "Начислить бонус/штраф"
-    const isResponsible = reportData.is_responsible === true;
-    const responsibleNote = isResponsible ? '\n⭐ Ответственный (ЗП начисляется вручную)\n' : '';
-    
-    // Рассчитываем "Нал в конверте" с учетом всех бонусов/штрафов (без ЗП ответственного, она начисляется отдельно)
-    const cash_in_envelope = CalculationService.calculateCashInEnvelope(
-      reportData.cash_amount,
-      bonusByTargets,
-      reportData.bonus_penalty || 0,
-      0, // responsible_salary_bonus = 0, так как начисляется отдельно
-      0  // best_revenue_bonus = 0, так как начисляется при генерации PDF
-    );
-    
-    // Формируем сводку данных для подтверждения
-    const summary = 
-      `📋 Проверьте введенные данные:${responsibleNote}\n\n` +
-      `🏢 Площадка: ${site.name}\n` +
-      `👤 Сотрудник: ${reportData.lastname} ${reportData.firstname}\n` +
-      `📱 № QR: ${reportData.qr_number}\n` +
-      `💳 Сумма по QR: ${CalculationService.formatAmount(reportData.qr_amount)}\n` +
-      `💵 Сумма наличных: ${CalculationService.formatAmount(reportData.cash_amount)}\n` +
-      (reportData.terminal_amount ? `💳 Сумма по терминалу: ${CalculationService.formatAmount(reportData.terminal_amount)}\n` : '') +
-      (reportData.comment ? `📝 Комментарий: ${reportData.comment}\n` : '') +
-      `\n📊 Расчеты:\n` +
-      `💰 Выручка: ${CalculationService.formatAmount(calculations.total_revenue)}\n` +
-      `💼 Зарплата: ${CalculationService.formatAmount(calculations.salary)}\n` +
-      `📈 Оборот: ${CalculationService.formatAmount(calculations.total_daily)}\n` +
-      `💵 Нал в конверте: ${CalculationService.formatAmount(cash_in_envelope)}\n\n` +
-      `Нажмите "✅ Ок" для сохранения или "⬅️ Назад" для редактирования.`;
     
     await ctx.reply(summary, getConfirmKeyboard());
   }
@@ -415,51 +374,12 @@ export class EveningReportFlow {
       if (prevState === 'evening_fill_confirm') {
         const siteId = session.context.site_id;
         const reportData = session.context.report;
-        const site = await getSiteById(siteId);
         
-        if (site) {
-          const calculations = CalculationService.calculate({
-            qr_amount: reportData.qr_amount,
-            cash_amount: reportData.cash_amount,
-            terminal_amount: reportData.terminal_amount,
-            bonus_target: site.bonus_target,
-          });
-          
-          // Рассчитываем бонусы по планкам
-          const bonusByTargets = calculateBonusByTargets(calculations.total_revenue, site.bonus_target);
-          
-          // Если это ответственный, ЗП начисляется вручную через "Начислить бонус/штраф"
-          const isResponsible = reportData.is_responsible === true;
-          const responsibleNote = isResponsible ? '\n⭐ Ответственный (ЗП начисляется вручную)\n' : '';
-          
-          // Рассчитываем "Нал в конверте" с учетом всех бонусов/штрафов (без ЗП ответственного, она начисляется отдельно)
-          const cash_in_envelope = CalculationService.calculateCashInEnvelope(
-            reportData.cash_amount,
-            bonusByTargets,
-            reportData.bonus_penalty || 0,
-            0, // responsible_salary_bonus = 0, так как начисляется отдельно
-            0  // best_revenue_bonus = 0, так как начисляется при генерации PDF
-          );
-          
-          const summary = 
-            `📋 Проверьте введенные данные:${responsibleNote}\n\n` +
-            `🏢 Площадка: ${site.name}\n` +
-            `👤 Сотрудник: ${reportData.lastname} ${reportData.firstname}\n` +
-            `📱 № QR: ${reportData.qr_number}\n` +
-            `💳 Сумма по QR: ${CalculationService.formatAmount(reportData.qr_amount)}\n` +
-            `💵 Сумма наличных: ${CalculationService.formatAmount(reportData.cash_amount)}\n` +
-            (reportData.terminal_amount ? `💳 Сумма по терминалу: ${CalculationService.formatAmount(reportData.terminal_amount)}\n` : '') +
-            (reportData.comment ? `📝 Комментарий: ${reportData.comment}\n` : '') +
-            `\n📊 Расчеты:\n` +
-            `💰 Выручка: ${CalculationService.formatAmount(calculations.total_revenue)}\n` +
-            `💼 Зарплата: ${CalculationService.formatAmount(calculations.salary)}\n` +
-            `📈 Оборот: ${CalculationService.formatAmount(calculations.total_daily)}\n` +
-            `💵 Нал в конверте: ${CalculationService.formatAmount(cash_in_envelope)}\n\n` +
-            `Нажмите "✅ Ок" для сохранения или "⬅️ Назад" для редактирования.`;
-          
+        const summary = await this.buildConfirmationSummary(siteId, reportData);
+        if (summary) {
           await ctx.reply(summary, getConfirmKeyboard());
-          return;
         }
+        return;
       }
       
       const messages: Partial<Record<DialogState, string>> = {
@@ -476,6 +396,55 @@ export class EveningReportFlow {
     } else {
       await ctx.reply('Вы на первом шаге');
     }
+  }
+
+  /**
+   * Формирует сводку данных для подтверждения отчета
+   */
+  private static async buildConfirmationSummary(
+    siteId: string,
+    reportData: any
+  ): Promise<string | null> {
+    const site = await getSiteById(siteId);
+    if (!site) return null;
+    
+    const calculations = CalculationService.calculate({
+      qr_amount: reportData.qr_amount,
+      cash_amount: reportData.cash_amount,
+      terminal_amount: reportData.terminal_amount,
+      bonus_target: site.bonus_target,
+    });
+    
+    const bonusByTargets = calculateBonusByTargets(calculations.total_revenue, site.bonus_target);
+    
+    const isResponsible = reportData.is_responsible === true;
+    const responsibleNote = isResponsible ? '\n⭐ Ответственный (ЗП начисляется вручную)\n' : '';
+    
+    const cash_in_envelope = CalculationService.calculateCashInEnvelope(
+      reportData.cash_amount,
+      bonusByTargets,
+      reportData.bonus_penalty || 0,
+      0, // responsible_salary_bonus = 0, так как начисляется отдельно
+      0  // best_revenue_bonus = 0, так как начисляется при генерации PDF
+    );
+    
+    const summary = 
+      `📋 Проверьте введенные данные:${responsibleNote}\n` +
+      `🏢 Площадка: ${site.name}\n` +
+      `👤 Сотрудник: ${reportData.lastname} ${reportData.firstname}\n` +
+      `📱 № QR: ${reportData.qr_number}\n` +
+      `💳 Сумма по QR: ${CalculationService.formatAmount(reportData.qr_amount)}\n` +
+      `💵 Сумма наличных: ${CalculationService.formatAmount(reportData.cash_amount)}\n` +
+      (reportData.terminal_amount ? `💳 Сумма по терминалу: ${CalculationService.formatAmount(reportData.terminal_amount)}\n` : '') +
+      (reportData.comment ? `📝 Комментарий: ${reportData.comment}\n` : '') +
+      `\n📊 Расчеты:\n` +
+      `💰 Выручка: ${CalculationService.formatAmount(calculations.total_revenue)}\n` +
+      `💼 Зарплата: ${CalculationService.formatAmount(calculations.salary)}\n` +
+      `📈 Оборот: ${CalculationService.formatAmount(calculations.total_daily)}\n` +
+      `💵 Нал в конверте: ${CalculationService.formatAmount(cash_in_envelope)}\n\n` +
+      `Нажмите "✅ Ок" для сохранения или "⬅️ Назад" для редактирования.`;
+    
+    return summary;
   }
 }
 

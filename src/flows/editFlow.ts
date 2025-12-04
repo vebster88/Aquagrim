@@ -451,30 +451,25 @@ export class EditFlow {
 
       const keyboard = getFlowKeyboard();
       
-      // Пытаемся обновить сообщение, если не получается - отправляем новое
+      // Сначала скрываем inline-кнопки, затем отправляем новое сообщение
       try {
-        await ctx.editMessageText(
-          `Текущее значение ${selectedField.label}: ${displayValue}\n` +
-          `Введите новое значение или нажмите "Далее":`,
-          {
-            parse_mode: 'HTML',
-            reply_markup: keyboard.reply_markup as any,
-          }
-        );
+        // Скрываем inline-кнопки, редактируя сообщение
+        await ctx.editMessageReplyMarkup({ inline_keyboard: [] } as any);
         await ctx.answerCbQuery();
       } catch (editError: any) {
-        // Если не удалось обновить сообщение (например, оно уже изменено), отправляем новое
-        console.warn('[EditFlow] Failed to edit message, sending new one:', editError.message);
-        await ctx.reply(
-          `Текущее значение ${selectedField.label}: ${displayValue}\n` +
-          `Введите новое значение или нажмите "Далее":`,
-          {
-            parse_mode: 'HTML',
-            reply_markup: keyboard.reply_markup as any,
-          }
-        );
+        // Если не удалось скрыть кнопки, просто отвечаем на callback
         await ctx.answerCbQuery();
       }
+      
+      // Отправляем новое сообщение с запросом ввода
+      await ctx.reply(
+        `Текущее значение ${selectedField.label}: ${displayValue}\n` +
+        `Введите новое значение или нажмите "Далее":`,
+        {
+          parse_mode: 'HTML',
+          reply_markup: keyboard.reply_markup as any,
+        }
+      );
     } catch (error) {
       console.error('[EditFlow] handleFieldSelection - error:', error);
       await ctx.answerCbQuery('❌ Ошибка при обработке');
@@ -575,6 +570,15 @@ export class EditFlow {
     if (!session || !session.context.originalReport) {
       await ctx.reply('❌ Сессия не найдена');
       return;
+    }
+    
+    // Скрываем inline-кнопки перед завершением
+    try {
+      await ctx.editMessageReplyMarkup({ inline_keyboard: [] } as any);
+      await ctx.answerCbQuery();
+    } catch (editError: any) {
+      // Если не удалось скрыть кнопки, просто отвечаем на callback
+      await ctx.answerCbQuery();
     }
     
     const report = session.context.originalReport;

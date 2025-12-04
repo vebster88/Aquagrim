@@ -157,7 +157,7 @@ export class AdminPanel {
       return;
     }
     
-    await ctx.reply('Введите Telegram ID пользователя, которого нужно сделать админом:');
+    await ctx.reply('Введите Telegram ID или username (например: 123456789 или @username) пользователя, которого нужно сделать админом:');
     // Состояние будет обработано в основном боте
   }
   

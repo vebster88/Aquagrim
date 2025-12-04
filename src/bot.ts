@@ -567,17 +567,37 @@ bot.on('text', async (ctx) => {
   // Обработка добавления админа
   else if (session.state === 'admin_add_admin' && session.context.waiting_for_admin_id) {
     console.log('[BOT] Processing admin_add_admin, text:', text);
-    const adminTelegramId = parseInt(text.trim());
-    if (isNaN(adminTelegramId)) {
-      await ctx.reply('❌ Пожалуйста, введите корректный Telegram ID (число)');
-      return;
+    const input = text.trim();
+    let targetTelegramId: number | undefined;
+    let targetUser = null;
+
+    // Пытаемся распарсить как Telegram ID (число)
+    if (!isNaN(parseInt(input))) {
+      targetTelegramId = parseInt(input);
+      targetUser = await getUserByTelegramId(targetTelegramId);
+    } else {
+      // Пытаемся распарсить как username
+      const username = input.startsWith('@') ? input.substring(1) : input;
+      try {
+        // Используем Telegram Bot API для получения информации о пользователе по username
+        const chat = await ctx.telegram.getChat(username);
+        if (chat.type === 'private' && 'id' in chat && chat.id) {
+          targetTelegramId = chat.id;
+          targetUser = await getUserByTelegramId(targetTelegramId);
+        }
+      } catch (error) {
+        console.error('Error getting chat by username:', error);
+      }
     }
-    
-    console.log('[BOT] Parsed Telegram ID:', adminTelegramId);
-    const targetUser = await getUserByTelegramId(adminTelegramId);
+
     if (!targetUser) {
-      console.log('[BOT] User not found for Telegram ID:', adminTelegramId);
-      await ctx.reply('❌ Пользователь с таким Telegram ID не найден');
+      console.log('[BOT] User not found for input:', input);
+      await ctx.reply(
+        '❌ Пользователь с таким username не найден. Убедитесь, что:\n\n' +
+        '1. Username указан правильно (например: @username или username)\n' +
+        '2. Пользователь есть в базе данных\n\n' +
+        'Альтернатива: введите Telegram ID пользователя (число)'
+      );
       await clearSession(user.id);
       return;
     }

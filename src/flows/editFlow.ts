@@ -18,7 +18,7 @@ import {
 } from '../db';
 import { EditContext, DialogState } from '../types';
 import { CalculationService } from '../services/CalculationService';
-import { getFlowKeyboard } from '../utils/keyboards';
+import { getFlowKeyboard, getMainKeyboard } from '../utils/keyboards';
 import { AdminPanel } from '../admin/adminPanel';
 import { getMoscowDate } from '../utils/dateTime';
 import { calculateBonusByTargets } from '../utils/bonusTarget';
@@ -352,11 +352,22 @@ export class EditFlow {
         callback_data: `finish_editing_${report.id}`,
       }]);
       
-      await ctx.reply('Выберите параметр для редактирования:', {
-        reply_markup: {
-          inline_keyboard: keyboard,
-        } as any,
-      });
+      // Пытаемся обновить сообщение, если не получается - отправляем новое
+      try {
+        await ctx.editMessageText('Выберите параметр для редактирования:', {
+          reply_markup: {
+            inline_keyboard: keyboard,
+          } as any,
+        });
+      } catch (editError: any) {
+        // Если не удалось обновить сообщение (например, при первом показе), отправляем новое
+        console.warn('[EditFlow] Failed to edit message, sending new one:', editError.message);
+        await ctx.reply('Выберите параметр для редактирования:', {
+          reply_markup: {
+            inline_keyboard: keyboard,
+          } as any,
+        });
+      }
     } catch (error) {
       console.error('[EditFlow] showFieldMenu - error:', error);
       throw error;
@@ -549,7 +560,10 @@ export class EditFlow {
     });
     
     // Возвращаемся в меню параметров
-    await ctx.reply('✅ Параметр обновлен');
+    // Показываем сообщение об обновлении только если значение было изменено
+    if (newValue !== undefined && newValue.trim() !== '') {
+      await ctx.reply('✅ Параметр обновлен');
+    }
     await this.showFieldMenu(ctx, userId, report);
   }
 
@@ -724,7 +738,12 @@ export class EditFlow {
     await createLog(userId, 'field_edited', null, { report_id: report.id, action: 'report_updated' });
     await clearSession(userId);
     
-    await ctx.reply('✅ Отчет успешно обновлен!');
+    // Получаем информацию о пользователе для определения прав
+    const user = await getUserById(userId);
+    const isAdmin = user ? AdminPanel.isAdmin(user) : false;
+    
+    // Показываем главное меню вместо кнопок "Далее", "Назад", "Отмена"
+    await ctx.reply('✅ Отчет успешно обновлен!', getMainKeyboard(isAdmin));
   }
 }
 

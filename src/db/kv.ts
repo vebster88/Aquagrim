@@ -22,6 +22,7 @@ export function initKV() {
 const PREFIXES = {
   user: 'user:',
   userByTelegram: 'user:tg:',
+  userByUsername: 'user:un:',
   session: 'session:',
   site: 'site:',
   siteByDate: 'site:date:',
@@ -126,6 +127,17 @@ export async function getUserByTelegramId(telegramId: number): Promise<User | nu
   return getUserById(userId as string);
 }
 
+/**
+ * Находит пользователя по username (без @)
+ */
+export async function getUserByUsername(username: string): Promise<User | null> {
+  // Нормализуем username (убираем @ если есть)
+  const normalizedUsername = username.startsWith('@') ? username.substring(1).toLowerCase() : username.toLowerCase();
+  const userId = await kvClient.get(`${PREFIXES.userByUsername}${normalizedUsername}`);
+  if (!userId) return null;
+  return getUserById(userId as string);
+}
+
 export async function createUser(telegramId: number, username?: string, phone?: string): Promise<User> {
   const id = await generateId('user');
   const user: User = {
@@ -140,11 +152,37 @@ export async function createUser(telegramId: number, username?: string, phone?: 
   await kvClient.set(`${PREFIXES.user}${id}`, user);
   await kvClient.set(`${PREFIXES.userByTelegram}${telegramId}`, id);
   
+  // Индексируем по username, если он есть
+  if (username) {
+    const normalizedUsername = username.toLowerCase();
+    await kvClient.set(`${PREFIXES.userByUsername}${normalizedUsername}`, id);
+  }
+  
   return user;
 }
 
 export async function updateUser(user: User): Promise<void> {
+  // Получаем старые данные пользователя для обновления индексов
+  const oldUser = await getUserById(user.id);
+  
   await kvClient.set(`${PREFIXES.user}${user.id}`, user);
+  
+  // Обновляем индекс по username, если username изменился
+  if (oldUser) {
+    const oldUsername = oldUser.username?.toLowerCase();
+    const newUsername = user.username?.toLowerCase();
+    
+    // Удаляем старый индекс, если username изменился или был удален
+    if (oldUsername && oldUsername !== newUsername) {
+      await kvClient.del(`${PREFIXES.userByUsername}${oldUsername}`);
+    }
+  }
+  
+  // Добавляем новый индекс по username, если он есть
+  if (user.username) {
+    const normalizedUsername = user.username.toLowerCase();
+    await kvClient.set(`${PREFIXES.userByUsername}${normalizedUsername}`, user.id);
+  }
 }
 
 // ========== Session ==========

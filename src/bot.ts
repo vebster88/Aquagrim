@@ -4,7 +4,7 @@
 
 import { Telegraf, Context, Markup } from 'telegraf';
 import { config, isSuperadmin } from './config';
-import { initKV, getUserByTelegramId, createUser, getSession, clearSession, getUserById, createOrUpdateSession, getSitesByDateForUser, getSiteById, getReportsBySite, createLog } from './db';
+import { initKV, getUserByTelegramId, getUserByUsername, createUser, getSession, clearSession, getUserById, createOrUpdateSession, getSitesByDateForUser, getSiteById, getReportsBySite, createLog } from './db';
 import { DialogState } from './types';
 import { MorningFillFlow } from './flows/morningFill';
 import { EveningReportFlow } from './flows/eveningReport';
@@ -602,22 +602,25 @@ bot.on('text', async (ctx) => {
       } catch (error) {
         apiError = error;
         console.error('Error getting chat by username:', error);
-        
-        // Если API не нашел пользователя, это может быть потому что:
-        // 1. Пользователь не писал боту
-        // 2. Username неверный или изменен
-        // 3. Пользователь скрыл username
-        // В этом случае нужно использовать Telegram ID
       }
       
-      // Если не нашли через API, показываем понятное сообщение
+      // Если не нашли через API, пытаемся найти в базе данных по username
+      if (!targetUser) {
+        console.log('[BOT] Trying to find user by username in database:', username);
+        targetUser = await getUserByUsername(username);
+        if (targetUser) {
+          console.log('[BOT] Found user in database by username:', targetUser.id);
+        }
+      }
+      
+      // Если все еще не нашли, показываем понятное сообщение
       if (!targetUser && apiError) {
         const errorMessage = apiError.response?.description || apiError.message || 'Unknown error';
-        console.log('[BOT] User not found via Telegram API:', errorMessage);
+        console.log('[BOT] User not found via Telegram API or database:', errorMessage);
         await ctx.reply(
-          '❌ Не удалось найти пользователя по username через Telegram API.\n\n' +
+          '❌ Не удалось найти пользователя по username.\n\n' +
           'Возможные причины:\n' +
-          '• Пользователь не писал боту ранее\n' +
+          '• Пользователь не зарегистрирован в боте (не писал /start)\n' +
           '• Username указан неверно или изменен\n' +
           '• Пользователь скрыл свой username\n\n' +
           '💡 Решение: используйте Telegram ID пользователя (число).\n' +
@@ -672,22 +675,25 @@ bot.on('text', async (ctx) => {
       } catch (error) {
         apiError = error;
         console.error('Error getting chat by username:', error);
-        
-        // Если API не нашел пользователя, это может быть потому что:
-        // 1. Пользователь не писал боту
-        // 2. Username неверный или изменен
-        // 3. Пользователь скрыл username
-        // В этом случае нужно использовать Telegram ID
       }
       
-      // Если не нашли через API, показываем понятное сообщение
+      // Если не нашли через API, пытаемся найти в базе данных по username
+      if (!targetUser) {
+        console.log('[BOT] Trying to find user by username in database:', username);
+        targetUser = await getUserByUsername(username);
+        if (targetUser) {
+          console.log('[BOT] Found user in database by username:', targetUser.id);
+        }
+      }
+      
+      // Если все еще не нашли, показываем понятное сообщение
       if (!targetUser && apiError) {
         const errorMessage = apiError.response?.description || apiError.message || 'Unknown error';
-        console.log('[BOT] User not found via Telegram API:', errorMessage);
+        console.log('[BOT] User not found via Telegram API or database:', errorMessage);
         await ctx.reply(
-          '❌ Не удалось найти пользователя по username через Telegram API.\n\n' +
+          '❌ Не удалось найти пользователя по username.\n\n' +
           'Возможные причины:\n' +
-          '• Пользователь не писал боту ранее\n' +
+          '• Пользователь не зарегистрирован в боте (не писал /start)\n' +
           '• Username указан неверно или изменен\n' +
           '• Пользователь скрыл свой username\n\n' +
           '💡 Решение: используйте Telegram ID пользователя (число).\n' +

@@ -4,7 +4,7 @@
 
 import { Telegraf, Context, Markup } from 'telegraf';
 import { config, isSuperadmin } from './config';
-import { initKV, getUserByTelegramId, getUserByUsername, createUser, getSession, clearSession, getUserById, createOrUpdateSession, getSitesByDateForUser, getSiteById, getReportsBySite, createLog } from './db';
+import { initKV, getUserByTelegramId, getUserByUsername, createUser, getSession, clearSession, getUserById, createOrUpdateSession, getSitesByDateForUser, getSiteById, getReportsBySite, createLog, updateUser, ensureUserUsernameIndex } from './db';
 import { DialogState } from './types';
 import { MorningFillFlow } from './flows/morningFill';
 import { EveningReportFlow } from './flows/eveningReport';
@@ -36,6 +36,19 @@ bot.use(async (ctx, next) => {
       ctx.from.username,
       undefined // телефон будет запрошен отдельно
     );
+  } else {
+    // Обновляем username и индекс для существующих пользователей
+    // Это нужно для старых пользователей, у которых индекс не был создан
+    const usernameChanged = user.username !== ctx.from.username;
+    if (usernameChanged || !user.username) {
+      user.username = ctx.from.username;
+      await updateUser(user);
+      // Убеждаемся, что индекс создан (для старых пользователей)
+      await ensureUserUsernameIndex(user);
+    } else {
+      // Даже если username не изменился, убеждаемся что индекс существует
+      await ensureUserUsernameIndex(user);
+    }
   }
   
   // Сохраняем пользователя в контексте

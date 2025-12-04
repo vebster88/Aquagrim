@@ -167,7 +167,7 @@ export async function updateUser(user: User): Promise<void> {
   
   await kvClient.set(`${PREFIXES.user}${user.id}`, user);
   
-  // Обновляем индекс по username, если username изменился
+  // Обновляем индекс по username
   if (oldUser) {
     const oldUsername = oldUser.username?.toLowerCase();
     const newUsername = user.username?.toLowerCase();
@@ -178,10 +178,28 @@ export async function updateUser(user: User): Promise<void> {
     }
   }
   
-  // Добавляем новый индекс по username, если он есть
+  // Добавляем/обновляем индекс по username, если он есть
+  // Это также создаст индекс для старых пользователей, у которых его не было
   if (user.username) {
     const normalizedUsername = user.username.toLowerCase();
     await kvClient.set(`${PREFIXES.userByUsername}${normalizedUsername}`, user.id);
+  }
+}
+
+/**
+ * Обновляет индекс по username для пользователя (для миграции старых данных)
+ * Создает индекс, если его еще нет
+ */
+export async function ensureUserUsernameIndex(user: User): Promise<void> {
+  if (user.username) {
+    const normalizedUsername = user.username.toLowerCase();
+    const existingUserId = await kvClient.get(`${PREFIXES.userByUsername}${normalizedUsername}`);
+    
+    // Создаем индекс только если его нет или если он указывает на другого пользователя
+    if (!existingUserId || existingUserId !== user.id) {
+      await kvClient.set(`${PREFIXES.userByUsername}${normalizedUsername}`, user.id);
+      console.log(`[KV] Created username index for user ${user.id} with username ${normalizedUsername}`);
+    }
   }
 }
 

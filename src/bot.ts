@@ -591,7 +591,8 @@ bot.on('text', async (ctx) => {
       const username = input.startsWith('@') ? input.substring(1) : input;
       try {
         // Используем Telegram Bot API для получения информации о пользователе по username
-        const chat = await ctx.telegram.getChat(username);
+        // API требует username с @ для приватных чатов
+        const chat = await ctx.telegram.getChat(`@${username}`);
         if (chat.type === 'private' && 'id' in chat && chat.id) {
           targetTelegramId = chat.id;
           targetUser = await getUserByTelegramId(targetTelegramId);
@@ -633,7 +634,8 @@ bot.on('text', async (ctx) => {
       const username = input.startsWith('@') ? input.substring(1) : input;
       try {
         // Используем Telegram Bot API для получения информации о пользователе по username
-        const chat = await ctx.telegram.getChat(username);
+        // API требует username с @ для приватных чатов
+        const chat = await ctx.telegram.getChat(`@${username}`);
         if (chat.type === 'private' && 'id' in chat && chat.id) {
           targetTelegramId = chat.id;
           targetUser = await getUserByTelegramId(targetTelegramId);

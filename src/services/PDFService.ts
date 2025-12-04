@@ -858,7 +858,7 @@ export class PDFService {
     // Таблица с сотрудниками
     const tableBody: any[] = [];
     tableBody.push([
-      { text: '№ QR', ...this.getBoldStyle(), fontSize: 11 },
+      { text: '№QR', ...this.getBoldStyle(), fontSize: 11 },
       { text: 'Сотрудник', ...this.getBoldStyle(), fontSize: 11 },
       { text: 'Выручка', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'QR', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
@@ -937,7 +937,7 @@ export class PDFService {
     content.push({
       table: {
         headerRows: 1,
-        widths: [50, 80, 60, 50, 65, 63, 61, 55, 78, 'auto', '*'],
+        widths: [30, 80, 60, 50, 65, 63, 61, 55, 78, 'auto', '*'],
         body: tableBody,
       },
       layout: {

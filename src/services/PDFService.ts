@@ -1003,18 +1003,19 @@ export class PDFService {
       .filter(w => typeof w === 'number')
       .reduce((sum, w) => sum + (w as number), 0);
     // Вычисляем примерную общую ширину (фиксированные + примерная для 'auto' и '*')
-    const estimatedAutoWidth = 100; // примерная ширина для 'auto'
-    const estimatedStarWidth = 98; // примерная ширина для '*'
+    const estimatedAutoWidth = 55; // примерная ширина для 'auto'
+    const estimatedStarWidth = 100; // примерная ширина для '*'
     const totalTableWidth = fixedWidthsSum + estimatedAutoWidth + estimatedStarWidth; // ~742pt
     
     // Распределяем ширину между 6 колонками таблицы сводных итогов
+    const firstColumnWidth = 70; // Итоги (фиксированная ширина)
     const summaryTableWidths = [
-      100, // Итоги (фиксированная ширина)
-      (totalTableWidth - 100) / 5, // Общая выручка
-      (totalTableWidth - 100) / 5, // Общая сумма по QR
-      (totalTableWidth - 100) / 5, // Общая сумма наличных
-      (totalTableWidth - 100) / 5, // Общая сумма по терминалу
-      (totalTableWidth - 100) / 5, // Нал в конверте
+      firstColumnWidth, // Итоги
+      (totalTableWidth - firstColumnWidth) / 5, // Общая выручка
+      (totalTableWidth - firstColumnWidth) / 5, // Общая сумма по QR
+      (totalTableWidth - firstColumnWidth) / 5, // Общая сумма наличных
+      (totalTableWidth - firstColumnWidth) / 5, // Общая сумма по терминалу
+      (totalTableWidth - firstColumnWidth) / 5, // Нал в конверте
     ];
 
     content.push({

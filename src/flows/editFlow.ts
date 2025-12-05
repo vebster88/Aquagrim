@@ -451,13 +451,20 @@ export class EditFlow {
 
       const keyboard = getFlowKeyboard();
       
-      // Сначала скрываем inline-кнопки, затем отправляем новое сообщение
+      // Обновляем сообщение, показывая выбранный параметр, и скрываем inline-кнопки
       try {
-        // Скрываем inline-кнопки, редактируя сообщение
-        await ctx.editMessageReplyMarkup({ inline_keyboard: [] } as any);
+        await ctx.editMessageText(
+          `✅ Выбран параметр: ${selectedField.label}`,
+          { reply_markup: { inline_keyboard: [] } } as any
+        );
         await ctx.answerCbQuery();
       } catch (editError: any) {
-        // Если не удалось скрыть кнопки, просто отвечаем на callback
+        // Если не удалось обновить сообщение, просто скрываем кнопки
+        try {
+          await ctx.editMessageReplyMarkup({ inline_keyboard: [] } as any);
+        } catch (e) {
+          // Игнорируем ошибку
+        }
         await ctx.answerCbQuery();
       }
       
@@ -589,6 +596,15 @@ export class EditFlow {
    * Показывает историю изменений отчета
    */
   static async showReportLogs(ctx: Context, userId: string, reportId: string) {
+    // Скрываем inline-кнопки перед показом истории
+    try {
+      await ctx.editMessageReplyMarkup({ inline_keyboard: [] } as any);
+      await ctx.answerCbQuery();
+    } catch (editError: any) {
+      // Если не удалось скрыть кнопки, просто отвечаем на callback
+      await ctx.answerCbQuery();
+    }
+    
     const report = await getReportById(reportId);
     if (!report) {
       await ctx.reply('❌ Отчет не найден');

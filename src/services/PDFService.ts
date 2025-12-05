@@ -1025,7 +1025,7 @@ export class PDFService {
     content.push({
       text: 'Подписи:',
       style: 'sectionHeader',
-      margin: [0, 20, 0, 10] as [number, number, number, number],
+      margin: [0, 0, 0, 10] as [number, number, number, number],
     });
 
     content.push(

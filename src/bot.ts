@@ -433,6 +433,15 @@ bot.action(/^finish_editing_(.+)$/, async (ctx) => {
 bot.action(/^view_logs_(.+)$/, async (ctx) => {
   const user = (ctx as any).user;
   const reportId = ctx.match[1];
+  
+  // Скрываем inline-кнопки перед показом истории
+  try {
+    await ctx.editMessageReplyMarkup({ inline_keyboard: [] } as any);
+    await ctx.answerCbQuery();
+  } catch (editError: any) {
+    await ctx.answerCbQuery();
+  }
+  
   await EditFlow.showReportLogs(ctx, user.id, reportId);
 });
 

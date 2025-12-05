@@ -1004,7 +1004,7 @@ export class PDFService {
       .reduce((sum, w) => sum + (w as number), 0);
     // Вычисляем примерную общую ширину (фиксированные + примерная для 'auto' и '*')
     const estimatedAutoWidth = 70; // примерная ширина для 'auto'
-    const estimatedStarWidth = 115; // примерная ширина для '*'
+    const estimatedStarWidth = 114; // примерная ширина для '*'
     const totalTableWidth = fixedWidthsSum + estimatedAutoWidth + estimatedStarWidth; // ~742pt
     
     // Распределяем ширину между 6 колонками таблицы сводных итогов

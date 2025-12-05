@@ -434,11 +434,20 @@ bot.action(/^view_logs_(.+)$/, async (ctx) => {
   const user = (ctx as any).user;
   const reportId = ctx.match[1];
   
-  // Скрываем inline-кнопки перед показом истории
+  // Обновляем сообщение, показывая выбранный параметр, и скрываем inline-кнопки
   try {
-    await ctx.editMessageReplyMarkup({ inline_keyboard: [] } as any);
+    await ctx.editMessageText(
+      `✅ Выбран параметр: История изменений`,
+      { reply_markup: { inline_keyboard: [] } } as any
+    );
     await ctx.answerCbQuery();
   } catch (editError: any) {
+    // Если не удалось обновить сообщение, просто скрываем кнопки
+    try {
+      await ctx.editMessageReplyMarkup({ inline_keyboard: [] } as any);
+    } catch (e) {
+      // Игнорируем ошибку
+    }
     await ctx.answerCbQuery();
   }
   

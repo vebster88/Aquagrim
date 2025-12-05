@@ -344,7 +344,8 @@ export class EveningReportFlow {
     // Показываем краткий итог и предлагаем дальнейшие действия
     await ctx.reply(
       `✅ Отчет сохранен!\n\n` +
-      `⚠️ Пожалуйста, проверьте соответствие сумм с отчетом.\n\n` +
+      `⚠️ Пожалуйста, проверьте соответствие сумм с отчетом.\n` +
+      `💰 Все бонусы будут отоброжены в PDF отчете\n\n` +
       `Что дальше?`,
       getAfterEveningSaveKeyboard()
     );
@@ -456,14 +457,6 @@ export class EveningReportFlow {
     const isResponsible = reportData.is_responsible === true;
     const responsibleNote = isResponsible ? '\n⭐ Ответственный (ЗП начисляется вручную)' : '';
     
-    const cash_in_envelope = CalculationService.calculateCashInEnvelope(
-      reportData.cash_amount,
-      bonusByTargets,
-      reportData.bonus_penalty || 0,
-      0, // responsible_salary_bonus = 0, так как начисляется отдельно
-      0  // best_revenue_bonus = 0, так как начисляется при генерации PDF
-    );
-    
     const summary = 
       `📋 Проверьте введенные данные:${responsibleNote}\n\n` +
       `🏢 Площадка: ${site.name}\n` +
@@ -475,9 +468,7 @@ export class EveningReportFlow {
       (reportData.comment ? `📝 Комментарий: ${reportData.comment}\n` : '') +
       `\n📊 Расчеты:\n` +
       `💰 Выручка: ${CalculationService.formatAmount(calculations.total_revenue)}\n` +
-      `💼 Зарплата: ${CalculationService.formatAmount(calculations.salary)}\n` +
-      `📈 Оборот: ${CalculationService.formatAmount(calculations.total_daily)}\n` +
-      `💵 Нал в конверте: ${CalculationService.formatAmount(cash_in_envelope)}\n\n` +
+      `💼 Зарплата: ${CalculationService.formatAmount(calculations.salary)}\n\n` +
       `Нажмите "✅ Ок" для сохранения или "⬅️ Назад" для редактирования.`;
     
     return summary;

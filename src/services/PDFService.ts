@@ -972,11 +972,11 @@ export class PDFService {
     const summaryTableBody: any[] = [];
     // Заголовок таблицы
     summaryTableBody.push([
-      { text: 'Итоги', ...this.getBoldStyle(), fontSize: 11 },
-      { text: 'Общая выручка', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
-      { text: 'Общая сумма по QR', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
-      { text: 'Общая сумма наличных', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
-      { text: 'Общая сумма по терминалу', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: '', ...this.getBoldStyle(), fontSize: 11 },
+      { text: 'Сумма выручки', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Сумма QR', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Сумма наличных', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Сумма терминал', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
       { text: 'Нал в конверте', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
     ]);
 
@@ -991,10 +991,36 @@ export class PDFService {
       { text: this.formatAmountInteger(cashInEnvelope), alignment: 'right', fontSize: 11 },
     ]);
 
+    // Вычисляем общую ширину таблицы сотрудников для выравнивания
+    // Таблица сотрудников: [32, 80, 60, 50, 65, 63, 61, 55, 78, 'auto', '*']
+    // Фиксированные колонки: 32 + 80 + 60 + 50 + 65 + 63 + 61 + 55 + 78 = 544
+    // В альбомной ориентации A4 ширина страницы ~842pt, отступы по 50pt = 742pt доступной ширины
+    // 'auto' и '*' занимают оставшееся пространство: 742 - 544 = 198pt
+    // Общая ширина таблицы сотрудников: ~742pt
+    // Для таблицы сводных итогов (6 колонок) используем ту же общую ширину
+    const employeesTableWidths = [32, 80, 60, 50, 65, 63, 61, 55, 78, 'auto', '*'];
+    const fixedWidthsSum = employeesTableWidths
+      .filter(w => typeof w === 'number')
+      .reduce((sum, w) => sum + (w as number), 0);
+    // Вычисляем примерную общую ширину (фиксированные + примерная для 'auto' и '*')
+    const estimatedAutoWidth = 100; // примерная ширина для 'auto'
+    const estimatedStarWidth = 98; // примерная ширина для '*'
+    const totalTableWidth = fixedWidthsSum + estimatedAutoWidth + estimatedStarWidth; // ~742pt
+    
+    // Распределяем ширину между 6 колонками таблицы сводных итогов
+    const summaryTableWidths = [
+      100, // Итоги (фиксированная ширина)
+      (totalTableWidth - 100) / 5, // Общая выручка
+      (totalTableWidth - 100) / 5, // Общая сумма по QR
+      (totalTableWidth - 100) / 5, // Общая сумма наличных
+      (totalTableWidth - 100) / 5, // Общая сумма по терминалу
+      (totalTableWidth - 100) / 5, // Нал в конверте
+    ];
+
     content.push({
       table: {
         headerRows: 1,
-        widths: ['*', '*', '*', '*', '*', '*'], // Равномерное распределение ширины колонок
+        widths: summaryTableWidths,
         body: summaryTableBody,
       },
       layout: {

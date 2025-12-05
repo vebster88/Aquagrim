@@ -965,67 +965,54 @@ export class PDFService {
         vLineWidth: (i: number, node: any) => 0.5,
         vLineColor: (i: number, node: any) => '#CCCCCC',
       },
-      margin: [0, 0, 0, 15] as [number, number, number, number],
+      margin: [0, 0, 0, 0] as [number, number, number, number],
     });
 
-    // Сводные итоги по площадке
-    content.push(
-      {
-        text: 'Сводные итоги по площадке:',
-        style: 'sectionHeader',
-        margin: [0, 0, 0, 10] as [number, number, number, number],
+    // Сводные итоги по площадке в виде таблицы
+    const summaryTableBody: any[] = [];
+    // Заголовок таблицы
+    summaryTableBody.push([
+      { text: 'Итоги', ...this.getBoldStyle(), fontSize: 11 },
+      { text: 'Общая выручка', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Общая сумма по QR', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Общая сумма наличных', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Общая сумма по терминалу', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+      { text: 'Нал в конверте', ...this.getBoldStyle(), alignment: 'right', fontSize: 11 },
+    ]);
+
+    // Строка данных сводных итогов
+    const cashInEnvelope = totals.cash_amount - totals.total_bonuses_penalties - responsibleSalary;
+    summaryTableBody.push([
+      { text: 'ИТОГО', ...this.getBoldStyle(), fontSize: 11 },
+      { text: this.formatAmountInteger(totals.total_revenue), alignment: 'right', fontSize: 11 },
+      { text: this.formatAmountInteger(totals.qr_amount), alignment: 'right', fontSize: 11 },
+      { text: this.formatAmountInteger(totals.cash_amount), alignment: 'right', fontSize: 11 },
+      { text: this.formatAmountInteger(totals.terminal_amount), alignment: 'right', fontSize: 11 },
+      { text: this.formatAmountInteger(cashInEnvelope), alignment: 'right', fontSize: 11 },
+    ]);
+
+    content.push({
+      table: {
+        headerRows: 1,
+        widths: ['*', '*', '*', '*', '*', '*'], // Равномерное распределение ширины колонок
+        body: summaryTableBody,
       },
-      {
-        text: [
-          { text: 'Общая выручка: ', ...this.getBoldStyle() },
-          this.formatAmountInteger(totals.total_revenue),
-        ],
-        margin: [0, 0, 0, 5] as [number, number, number, number],
+      layout: {
+        // Горизонтальные линии
+        hLineWidth: (i: number, node: any) => 0.5,
+        hLineColor: (i: number, node: any) => '#CCCCCC',
+        // Вертикальные линии
+        vLineWidth: (i: number, node: any) => 0.5,
+        vLineColor: (i: number, node: any) => '#CCCCCC',
       },
-      {
-        text: [
-          { text: 'Общая сумма по QR: ', ...this.getBoldStyle() },
-          this.formatAmountInteger(totals.qr_amount),
-        ],
-        margin: [0, 0, 0, 5] as [number, number, number, number],
-      },
-      {
-        text: [
-          { text: 'Общая сумма наличных: ', ...this.getBoldStyle() },
-          this.formatAmountInteger(totals.cash_amount),
-        ],
-        margin: [0, 0, 0, 5] as [number, number, number, number],
-      },
-      {
-        text: [
-          { text: 'Общая сумма по терминалу: ', ...this.getBoldStyle() },
-          this.formatAmountInteger(totals.terminal_amount),
-        ],
-        margin: [0, 0, 0, 5] as [number, number, number, number],
-      },
-      /*{
-        text: [
-         { text: 'Общая зарплата: ', ...this.getBoldStyle() },
-          this.formatAmountInteger(totals.salary),
-        ],
-        margin: [0, 0, 0, 5] as [number, number, number, number],
-      },*/
-      {
-        text: [
-          { text: 'Нал в конверте: ', ...this.getBoldStyle() },
-          this.formatAmountInteger(
-            totals.cash_amount - totals.total_bonuses_penalties - responsibleSalary
-          ),
-        ],
-        margin: [0, 0, 0, 15] as [number, number, number, number],
-      }
-    );
+      margin: [0, 0, 0, 15] as [number, number, number, number],
+    });
 
     // Подписи
     content.push({
       text: 'Подписи:',
       style: 'sectionHeader',
-      margin: [0, 0, 0, 10] as [number, number, number, number],
+      margin: [0, 5, 0, 10] as [number, number, number, number],
     });
 
     content.push(

@@ -18,7 +18,7 @@ import {
 } from '../db';
 import { DialogState } from '../types';
 import { CalculationService } from '../services/CalculationService';
-import { getFlowKeyboard, getConfirmKeyboard, getMainKeyboard } from '../utils/keyboards';
+import { getFlowKeyboard, getConfirmKeyboard, getMainKeyboard, getAfterEveningSaveKeyboard } from '../utils/keyboards';
 import { calculateBonusByTargets } from '../utils/bonusTarget';
 import { AdminPanel } from '../admin/adminPanel';
 import { getMoscowDate } from '../utils/dateTime';
@@ -334,17 +334,53 @@ export class EveningReportFlow {
     await updateSite({ ...site, status: 'evening_filled' });
     
     await createLog(userId, 'evening_fill_completed', null, { report_id: report.id });
-    await clearSession(userId);
     
-    // Показываем краткий итог
-    const user = await getUserById(userId);
-    const isAdmin = user ? AdminPanel.isAdmin(user) : false;
+    // Сохраняем siteId в сессии для возможности заполнения следующего человека
+    // Используем состояние 'idle' с сохраненным site_id в контексте
+    await createOrUpdateSession(userId, 'idle', {
+      site_id: siteId,
+    });
+    
+    // Показываем краткий итог и предлагаем дальнейшие действия
     await ctx.reply(
       `✅ Отчет сохранен!\n\n` +
-      
-      `⚠️ Пожалуйста, проверьте соответствие сумм с отчетом.`,
-      getMainKeyboard(isAdmin)
+      `⚠️ Пожалуйста, проверьте соответствие сумм с отчетом.\n\n` +
+      `Что дальше?`,
+      getAfterEveningSaveKeyboard()
     );
+  }
+  
+  /**
+   * Начинает заполнение следующего человека для той же площадки
+   */
+  static async startNextPerson(ctx: Context, userId: string) {
+    const session = await getSession(userId);
+    if (!session || !session.context.site_id) {
+      const user = await getUserById(userId);
+      const isAdmin = user ? AdminPanel.isAdmin(user) : false;
+      await ctx.reply('❌ Не найдена информация о площадке', getMainKeyboard(isAdmin));
+      return;
+    }
+    
+    const siteId = session.context.site_id;
+    const site = await getSiteById(siteId);
+    
+    if (!site) {
+      const user = await getUserById(userId);
+      const isAdmin = user ? AdminPanel.isAdmin(user) : false;
+      await ctx.reply('❌ Ошибка: площадка не найдена', getMainKeyboard(isAdmin));
+      await clearSession(userId);
+      return;
+    }
+    
+    // Начинаем заполнение следующего человека (обычный ввод, не ответственный)
+    await createOrUpdateSession(userId, 'evening_fill_lastname', {
+      flow: 'evening',
+      site_id: siteId,
+      report: {},
+    });
+    await createLog(userId, 'evening_fill_started', null, { site_id: siteId });
+    await ctx.reply('Введите фамилию сотрудника:', getFlowKeyboard());
   }
   
   /**

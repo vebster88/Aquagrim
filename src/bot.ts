@@ -128,6 +128,27 @@ bot.hears('💰 Назначить ЗП ответственного/штраф�
   await BonusPenaltyFlow.start(ctx, user.id);
 });
 
+bot.hears('👤 Заполнить следующего человека', async (ctx) => {
+  const user = (ctx as any).user;
+  const session = await getSession(user.id);
+  
+  if (!session || !session.context.site_id) {
+    const isAdmin = AdminPanel.isAdmin(user);
+    await ctx.reply('❌ Эта опция доступна только после сохранения вечернего отчета', getMainKeyboard(isAdmin));
+    return;
+  }
+  
+  await EveningReportFlow.startNextPerson(ctx, user.id);
+});
+
+bot.hears('✅ Завершить', async (ctx) => {
+  const user = (ctx as any).user;
+  await clearSession(user.id);
+  
+  const isAdmin = AdminPanel.isAdmin(user);
+  await ctx.reply('✅ Работа завершена', getMainKeyboard(isAdmin));
+});
+
 bot.hears('ℹ️ Помощь', async (ctx) => {
   const user = (ctx as any).user;
   const isAdmin = AdminPanel.isAdmin(user);

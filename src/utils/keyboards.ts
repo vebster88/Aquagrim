@@ -45,3 +45,12 @@ export function getMainKeyboard(isAdmin: boolean = false) {
   return Markup.keyboard(buttons).resize();
 }
 
+/**
+ * Клавиатура для выбора действий после сохранения вечернего отчета
+ */
+export function getAfterEveningSaveKeyboard() {
+  return Markup.keyboard([
+    ['👤 Заполнить следующего человека', '✅ Завершить'],
+  ]).resize();
+}
+

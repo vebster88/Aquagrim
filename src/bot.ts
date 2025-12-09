@@ -524,8 +524,35 @@ bot.action('admin_pdf_today', async (ctx) => {
 
 bot.action(/^admin_pdf_site_(.+?)(?::date::(.+))?$/, async (ctx) => {
   const user = (ctx as any).user;
-  const siteId = ctx.match[1];
-  const date = ctx.match[2]; // Опциональная дата из callback_data
+  const callbackData = 'data' in ctx.callbackQuery ? ctx.callbackQuery.data : '';
+  console.log('[BOT] admin_pdf_site - callback_data:', callbackData);
+  
+  // Парсим вручную для надежности
+  const prefix = 'admin_pdf_site_';
+  if (!callbackData.startsWith(prefix)) {
+    await ctx.reply('❌ Ошибка: неверный формат данных');
+    return;
+  }
+  
+  const rest = callbackData.substring(prefix.length);
+  const dateSeparator = '::date::';
+  const separatorIndex = rest.indexOf(dateSeparator);
+  
+  let siteId: string;
+  let date: string | undefined;
+  
+  if (separatorIndex !== -1) {
+    // Есть дата
+    siteId = rest.substring(0, separatorIndex);
+    date = rest.substring(separatorIndex + dateSeparator.length);
+  } else {
+    // Нет даты (старый формат для обратной совместимости)
+    siteId = rest;
+    date = undefined;
+  }
+  
+  console.log('[BOT] admin_pdf_site - parsed:', { siteId, date, callbackData });
+  
   await AdminPanel.generatePDF(ctx, siteId, user.id, date);
 });
 

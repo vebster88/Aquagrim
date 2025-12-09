@@ -522,7 +522,7 @@ bot.action('admin_pdf_today', async (ctx) => {
   await AdminPanel.handlePDFDateSelection(ctx, user.id, today);
 });
 
-bot.action(/^admin_pdf_site_(.+?)(?:_(.+))?$/, async (ctx) => {
+bot.action(/^admin_pdf_site_(.+?)(?::date::(.+))?$/, async (ctx) => {
   const user = (ctx as any).user;
   const siteId = ctx.match[1];
   const date = ctx.match[2]; // Опциональная дата из callback_data

@@ -113,7 +113,7 @@ export class AdminPanel {
     }
     
     const keyboard = sites.map(site => [
-      { text: `${site.name} (${date})`, callback_data: `admin_pdf_site_${site.id}_${date}` },
+      { text: `${site.name} (${date})`, callback_data: `admin_pdf_site_${site.id}::date::${date}` },
     ]);
     
     await ctx.reply(`Выберите площадку для генерации PDF за ${date}:`, {

@@ -13,7 +13,7 @@ import { BonusPenaltyFlow } from './flows/bonusPenaltyFlow';
 import { AdminPanel } from './admin/adminPanel';
 import { getMainKeyboard, getFlowKeyboard, getConfirmKeyboard } from './utils/keyboards';
 import { PDFService } from './services/PDFService';
-import { getMoscowDate } from './utils/dateTime';
+import { getMoscowDate, parseDate } from './utils/dateTime';
 
 // Инициализация бота
 const bot = new Telegraf(config.botToken);
@@ -503,13 +503,30 @@ bot.action('admin_view_sites', async (ctx) => {
 });
 
 bot.action('admin_get_pdf', async (ctx) => {
-  await AdminPanel.handleGetPDF(ctx);
+  const user = (ctx as any).user;
+  await AdminPanel.handleGetPDF(ctx, user.id);
+  
+  // Сохраняем состояние для ввода даты
+  const session = await getSession(user.id);
+  await createOrUpdateSession(user.id, 'admin_pdf_date', {
+    ...(session?.context || {}),
+    waiting_for_date: true
+  });
 });
 
-bot.action(/^admin_pdf_site_(.+)$/, async (ctx) => {
+bot.action('admin_pdf_today', async (ctx) => {
+  const user = (ctx as any).user;
+  const today = getMoscowDate();
+  await ctx.editMessageText(`Выбрана дата: ${today}`);
+  await clearSession(user.id); // Очищаем сессию после выбора даты
+  await AdminPanel.handlePDFDateSelection(ctx, user.id, today);
+});
+
+bot.action(/^admin_pdf_site_(.+?)(?:_(.+))?$/, async (ctx) => {
   const user = (ctx as any).user;
   const siteId = ctx.match[1];
-  await AdminPanel.generatePDF(ctx, siteId, user.id);
+  const date = ctx.match[2]; // Опциональная дата из callback_data
+  await AdminPanel.generatePDF(ctx, siteId, user.id, date);
 });
 
 bot.action(/^user_pdf_site_(.+)$/, async (ctx) => {
@@ -759,6 +776,30 @@ bot.on('text', async (ctx) => {
     console.log('[BOT] Found user:', targetUser.id, 'Calling removeAdmin...');
     await AdminPanel.removeAdmin(ctx, targetUser.id, user.id);
     await clearSession(user.id);
+  }
+  // Обработка ввода даты для генерации PDF
+  else if (session.state === 'admin_pdf_date' && session.context.waiting_for_date) {
+    const dateString = text.trim();
+    const parsedDate = parseDate(dateString);
+    
+    if (!parsedDate) {
+      await ctx.reply(
+        '❌ Неверный формат даты.\n\n' +
+        'Пожалуйста, введите дату в формате ДД.ММ.ГГГГ (например: 04.12.2024)\n\n' +
+        'Или нажмите кнопку "Сегодня" для генерации отчета за сегодняшний день.',
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '📅 Сегодня', callback_data: 'admin_pdf_today' }],
+            ],
+          },
+        }
+      );
+      return;
+    }
+    
+    await clearSession(user.id);
+    await AdminPanel.handlePDFDateSelection(ctx, user.id, parsedDate);
   }
 });
 

@@ -85,22 +85,38 @@ export class AdminPanel {
   }
   
   /**
-   * Обрабатывает запрос PDF отчета
+   * Обрабатывает запрос PDF отчета - запрашивает дату
    */
-  static async handleGetPDF(ctx: Context) {
-    const today = getMoscowDate();
-    const sites = await getSitesByDate(today);
+  static async handleGetPDF(ctx: Context, userId: string) {
+    await ctx.reply(
+      'Введите дату для генерации PDF отчета в формате ДД.ММ.ГГГГ (например: 04.12.2024)\n\n' +
+      'Или нажмите "Сегодня" для генерации отчета за сегодняшний день.',
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '📅 Сегодня', callback_data: 'admin_pdf_today' }],
+          ],
+        },
+      }
+    );
+  }
+  
+  /**
+   * Обрабатывает выбор даты для PDF - показывает список площадок
+   */
+  static async handlePDFDateSelection(ctx: Context, userId: string, date: string) {
+    const sites = await getSitesByDate(date);
     
     if (sites.length === 0) {
-      await ctx.reply('На сегодня нет площадок');
+      await ctx.reply(`❌ На дату ${date} нет площадок`);
       return;
     }
     
     const keyboard = sites.map(site => [
-      { text: site.name, callback_data: `admin_pdf_site_${site.id}` },
+      { text: `${site.name} (${date})`, callback_data: `admin_pdf_site_${site.id}_${date}` },
     ]);
     
-    await ctx.reply('Выберите площадку для генерации PDF:', {
+    await ctx.reply(`Выберите площадку для генерации PDF за ${date}:`, {
       reply_markup: {
         inline_keyboard: keyboard,
       },
@@ -109,18 +125,21 @@ export class AdminPanel {
   
   /**
    * Генерирует и отправляет PDF для площадки
+   * @param date - дата для генерации PDF (если не указана, используется дата площадки)
    */
-  static async generatePDF(ctx: Context, siteId: string, userId: string) {
+  static async generatePDF(ctx: Context, siteId: string, userId: string, date?: string) {
     const site = await getSiteById(siteId);
     if (!site) {
       await ctx.reply('❌ Площадка не найдена');
       return;
     }
     
-    const reports = await getReportsBySite(siteId, site.date);
+    // Используем переданную дату или дату площадки
+    const reportDate = date || site.date;
+    const reports = await getReportsBySite(siteId, reportDate);
     
     if (reports.length === 0) {
-      await ctx.reply('❌ Отчеты по этой площадке не найдены');
+      await ctx.reply(`❌ Отчеты по этой площадке за ${reportDate} не найдены`);
       return;
     }
     
@@ -130,14 +149,14 @@ export class AdminPanel {
       await ctx.replyWithDocument(
         {
           source: pdfBuffer,
-          filename: `summary_${site.name}_${site.date}.pdf`,
+          filename: `summary_${site.name}_${reportDate}.pdf`,
         },
         {
-          caption: `Сводный отчет по площадке: ${site.name} - ${site.date}`,
+          caption: `Сводный отчет по площадке: ${site.name} - ${reportDate}`,
         }
       );
       
-      await createLog(userId, 'pdf_generated', null, { site_id: siteId, reports_count: reports.length });
+      await createLog(userId, 'pdf_generated', null, { site_id: siteId, date: reportDate, reports_count: reports.length });
     } catch (error) {
       console.error('Error generating site summary PDF:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);

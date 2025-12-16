@@ -226,10 +226,15 @@ async function generateSummaryPDFForUser(ctx: Context, userId: string, siteId: s
   try {
     const pdfBuffer = await PDFService.generateSiteSummaryPDF(site, reports);
     
+    // Удаляем кавычки из имени файла
+    const safeSiteName = site.name.replace(/["""'']/g, '');
+    const safeDate = site.date.replace(/["""'']/g, '');
+    const filename = `summary ${safeSiteName} ${safeDate}.pdf`;
+    
     await ctx.replyWithDocument(
       {
         source: pdfBuffer,
-        filename: `summary_${site.name}_${site.date}.pdf`,
+        filename: filename,
       },
       {
         caption: `Сводный отчет по площадке: ${site.name} - ${site.date}`,

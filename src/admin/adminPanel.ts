@@ -146,10 +146,15 @@ export class AdminPanel {
     try {
       const pdfBuffer = await PDFService.generateSiteSummaryPDF(site, reports);
       
+      // Удаляем кавычки из имени файла
+      const safeSiteName = site.name.replace(/["""'']/g, '');
+      const safeDate = reportDate.replace(/["""'']/g, '');
+      const filename = `summary ${safeSiteName} ${safeDate}.pdf`;
+      
       await ctx.replyWithDocument(
         {
           source: pdfBuffer,
-          filename: `summary_${site.name}_${reportDate}.pdf`,
+          filename: filename,
         },
         {
           caption: `Сводный отчет по площадке: ${site.name} - ${reportDate}`,

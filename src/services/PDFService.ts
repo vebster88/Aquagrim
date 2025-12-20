@@ -755,13 +755,15 @@ export class PDFService {
         acc.total_revenue += r.total_revenue;
         acc.salary += r.salary;
         // Суммируем бонусы/штрафы (из столбца PDF: bonus_by_targets + bonus_penalty + best_revenue_bonus, без responsibleBonus)
-        // Примечание: если bonus_penalty отрицательное (штраф), не вычитаем его из наличных
+        // Примечание: если общая сумма бонусов и штрафов отрицательная, она не вычитается из наличных
         const bonusByTargets = r.bonus_by_targets || 0;
         const manualBonusPenalty = r.bonus_penalty || 0;
         const bestRevenueBonus = r.best_revenue_bonus || 0;
-        // Используем только положительные значения bonus_penalty (штрафы не вычитаются из наличных)
-        const effectiveBonusPenalty = manualBonusPenalty >= 0 ? manualBonusPenalty : 0;
-        acc.total_bonuses_penalties += bonusByTargets + effectiveBonusPenalty + bestRevenueBonus;
+        // Сначала считаем общую сумму бонусов и штрафов для этого сотрудника
+        const totalBonusesPenalties = bonusByTargets + manualBonusPenalty + bestRevenueBonus;
+        // Если общая сумма отрицательная (штрафы больше бонусов), не учитываем её в итоге
+        const effectiveBonusesPenalties = totalBonusesPenalties >= 0 ? totalBonusesPenalties : 0;
+        acc.total_bonuses_penalties += effectiveBonusesPenalties;
         return acc;
       },
       {

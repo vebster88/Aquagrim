@@ -58,7 +58,7 @@ export class CalculationService {
   /**
    * Рассчитывает "Нал в конверте" с учетом всех бонусов и штрафов
    * Формула: cash_amount - (bonus_by_targets + bonus_penalty + best_revenue_bonus + responsible_salary_bonus)
-   * Примечание: если bonus_penalty < 0 (штраф), то он не вычитается из наличных
+   * Примечание: если общая сумма бонусов и штрафов отрицательная, она не вычитается из наличных
    */
   static calculateCashInEnvelope(
     cash_amount: number,
@@ -67,10 +67,12 @@ export class CalculationService {
     responsible_salary_bonus: number = 0,
     best_revenue_bonus: number = 0
   ): number {
-    // Если bonus_penalty отрицательное (штраф), не вычитаем его из наличных
-    const effectiveBonusPenalty = bonus_penalty >= 0 ? bonus_penalty : 0;
-    const totalBonusesPenalties = bonus_by_targets + effectiveBonusPenalty + best_revenue_bonus + responsible_salary_bonus;
-    return Math.round(cash_amount - totalBonusesPenalties);
+    // Сначала считаем общую сумму бонусов и штрафов (без ЗП ответственного)
+    const totalBonusesPenalties = bonus_by_targets + bonus_penalty + best_revenue_bonus;
+    // Если общая сумма отрицательная (штрафы больше бонусов), не вычитаем её из наличных
+    const effectiveBonusesPenalties = totalBonusesPenalties >= 0 ? totalBonusesPenalties : 0;
+    // ЗП ответственного всегда вычитается (если начислена)
+    return Math.round(cash_amount - effectiveBonusesPenalties - responsible_salary_bonus);
   }
   
   /**

@@ -242,9 +242,9 @@ export class BonusPenaltyFlow {
     }
     
     // Для ЗП ответственного разрешаем только положительные числа
-    if (bonusType === 'salary' && amount <= 0) {
+    if (bonusType === 'salary' && amount < 0) {
       await ctx.reply(
-        '❌ ЗП ответственного должна быть положительным числом (например: 5000)',
+        '❌ ЗП ответственного должна быть положительным числом или равна 0 (например: 1500)',
         getFlowKeyboard()
       );
       return;
